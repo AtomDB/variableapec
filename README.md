@@ -24,10 +24,10 @@ Check the emissivity sensitivity of Fe XVII line ratio 1->27/1->23 for a 10% cha
 	import variableapec
 	variableapec.check_sensitivity(26, 17, 3e6, 1, 'exc', transition=(1, 27), transition_2=(1, 23), delta_r=0.1)
 
-Specify the range of wavelengths to plot affected emission lines to be 10 to 50 Angstroms:
+Specify the range of wavelengths to plot affected emission lines to be 10-50 Angstroms. The default is 10-20 A.
 	
 	import variableapec
-	variableapec.check_sensitivity(26, 17, 3e6, 1, 'exc', transition=(1,23), delta_r=0.1, wavelen=[10, 20])
+	variableapec.check_sensitivity(26, 17, 3e6, 1, 'exc', transition=(1,23), delta_r=0.1, wavelen=[10, 50])
 	
 Output:
 =========

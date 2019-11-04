@@ -9,21 +9,25 @@ Requires PyAtomDB package and Python 3.
 
 Usage Examples:
 ==============
-Check the emissivity sensitivity to a 10$\%$ change in the A value for 27->1 transition for Fe XVII at 3e6 K and dens = 1:
+Check the emissivity sensitivity to a 10% change in the A value for 27->1 transition for Fe XVII at 3e6 K and dens = 1:
+
 	import variableapec
 	variableapec.check_sensitivity(26, 17, 3e6, 1, 'A', transition=(27,1), delta_r=0.1)
 
-Check the emissivity sensitivity to a 10$\%$ change in the direct excitation rate for 1->23 transition for Fe XVII at 3e6 K and dens = 1:
+Check the emissivity sensitivity to a 10% change in the direct excitation rate for 1->23 transition for Fe XVII at 3e6 K and dens = 1:
+
 	import variableapec
 	variableapec.check_sensitivity(26, 17, 3e6, 1, 'exc', transition=(1,23), delta_r=0.1)
 
-Check the emissivity sensitivity of Fe XVII line ratio 1->27/1->23 for a 10$\%$ change in the direct excitation rate for these transitions at 3e6 K and dens =1:
+Check the emissivity sensitivity of Fe XVII line ratio 1->27/1->23 for a 10% change in the direct excitation rate for these transitions at 3e6 K and dens =1:
+
 	import variableapec
 	variableapec.check_sensitivity(26, 17, 3e6, 1, 'exc', transition=(1, 27), transition_2=(1, 23), delta_r=0.1)
 
 Specify the range of wavelengths to plot affected emission lines to be 10 to 50 Angstroms:
+	
 	import variableapec
-	variableapec.check_sensitivity(26, 17, 3e6, 1, 'exc', transition=(1,23), wavelen=[10, 20]
+	variableapec.check_sensitivity(26, 17, 3e6, 1, 'exc', transition=(1,23), delta_r=0.1, wavelen=[10, 20])
 	
 Output:
 =========

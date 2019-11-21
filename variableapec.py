@@ -17,10 +17,101 @@ from matplotlib.offsetbox import AnchoredText
 import matplotlib.pylab as pylab
 from decimal import Decimal
 
-def set_up(Z, z1, Te, dens, process, delta_r, transition, transition_2, all_levels, \
-           nlev, npnts, show, wavelen, corrthresh, e_signif):
+def ionize(Z, z1, Te, dens, linelist, full_linelist, upper_level, lower_level, la_matrix, in_range, pop_fraction):
     
-    """ Uses inputs from check_sensitivity(), see that subroutine for variable definitions.
+    init, final, rates = pyatomdb.apec.gather_rates(Z, z1-1, Te, dens, do_la= True, \
+                            do_ec=True, do_ir=True, do_pc=True, do_ai=True)
+    
+    lvdat = pyatomdb.atomdb.get_data(Z, z1-1, 'LV')
+    lvdat = lvdat[1].data
+    nlev = len(lvdat)
+    drv_matrix = numpy.zeros((nlev,nlev))
+    drv_B = numpy.zeros(nlev)
+    
+    #populate full CR matrix by summing rates for all processes
+    for i in range(len(init)):
+        x = final[i]
+        y = init[i]
+        drv_matrix[x][y] += rates[i]
+        
+    #set up and solve CR matrix for level populations
+    drv_matrix[0][:] = 1.0
+    drv_B[0]=1.0
+    drv_lev_pop = numpy.linalg.solve(drv_matrix,drv_B)
+    
+    z1_drv = z1-1
+    print(len(drv_lev_pop))
+    ion_B = pyatomdb.apec.calc_ioniz_popn(drv_lev_pop, Z, z1, z1_drv, Te, dens)
+    neg_ion_B = [-x for x in ion_B]
+    neg_ion_B[0]=1.0
+    ion_levpop = numpy.linalg.solve(la_matrix,neg_ion_B)
+
+    ion_linelist = numpy.zeros(len(in_range), dtype=pyatomdb.apec.generate_datatypes('linetype')) 
+
+    ion_upper_level= numpy.zeros(len(in_range))
+    ion_lower_level = numpy.zeros(len(in_range))
+    
+    for i in range(len(in_range)):
+        ion_linelist['lambda'][i] = in_range['WAVELEN'][i]
+        ion_pop_level = in_range['UPPER_LEV'][i]
+        ion_linelist['epsilon'][i] = in_range['EINSTEIN_A'][i]*ion_levpop[ion_pop_level-1]
+        ion_upper_level[i] = in_range['UPPER_LEV'][i]
+        ion_lower_level[i] = in_range['LOWER_LEV'][i]
+        
+    ion_linelist['epsilon']=[e*pop_fraction[z1_drv-1] for e in ion_linelist['epsilon']]
+    
+    return ion_linelist['epsilon']
+            
+def recombine(Z, z1, Te, dens, linelist, full_linelist, upper_level, lower_level, la_matrix, in_range, pop_fraction):            
+    
+    init, final, rates = pyatomdb.apec.gather_rates(Z, z1+1, Te, dens, do_la= True, \
+                            do_ec=True, do_ir=True, do_pc=True, do_ai=True)
+    
+    lvdat = pyatomdb.atomdb.get_data(Z, z1+1, 'LV')
+    lvdat = lvdat[1].data
+    nlev = len(lvdat)
+    drv_matrix = numpy.zeros((nlev,nlev))
+    drv_B = numpy.zeros(nlev)
+    
+    #populate full CR matrix by summing rates for all processes
+    for i in range(len(init)):
+        x = final[i]
+        y = init[i]
+        drv_matrix[x][y] += rates[i]
+        
+    #set up and solve CR matrix for level populations
+    drv_matrix[0][:] = 1.0
+    drv_B[0]=1.0
+    drv_lev_pop = numpy.linalg.solve(drv_matrix,drv_B)
+    
+    z1_drv = z1+1
+    recomb_B = pyatomdb.apec.calc_recomb_popn(drv_lev_pop, Z, z1, z1_drv, Te, dens, drlevrates=0, rrlevrates=0)
+    neg_recomb_B = [-x for x in recomb_B]
+    neg_recomb_B[0]=1.0
+    recomb_levpop = numpy.linalg.solve(la_matrix,neg_recomb_B)
+
+    recomb_linelist = numpy.zeros(len(in_range), dtype=pyatomdb.apec.generate_datatypes('linetype'))
+
+    recomb_upper_level= numpy.zeros(len(in_range))
+    recomb_lower_level = numpy.zeros(len(in_range))
+    
+    #calculate emissivity from recombination
+    for i in range(len(in_range)):
+        recomb_linelist['lambda'][i] = in_range['WAVELEN'][i]
+        recomb_pop_level = in_range['UPPER_LEV'][i]
+        recomb_linelist['epsilon'][i] = in_range['EINSTEIN_A'][i]*recomb_levpop[recomb_pop_level-1]
+        recomb_upper_level[i] = in_range['UPPER_LEV'][i]
+        recomb_lower_level[i] = in_range['LOWER_LEV'][i]
+    
+    #multiply by fraction of plasma from z1_drv
+    recomb_linelist['epsilon']=[e*pop_fraction[z1_drv-1] for e in recomb_linelist['epsilon']]
+
+    return recomb_linelist['epsilon']
+
+def set_up(Z, z1, Te, dens, process, delta_r, transition, transition_2, \
+           npnts, show, wavelen, corrthresh, e_signif):
+    
+    """ Uses inputs from check_sensitivity(), see routine for variable definitions as they are same throughout.
     
     Set_up() gets original rates, radiative collision matrix, level populations, line lists, 
     and intensities and returns these in a dictionary called values. Creates sensitivity tables.
@@ -30,38 +121,26 @@ def set_up(Z, z1, Te, dens, process, delta_r, transition, transition_2, all_leve
     init, final, rates = pyatomdb.apec.gather_rates(Z, z1, Te, dens, do_la= True, \
                             do_ec=True, do_ir=True, do_pc=True, do_ai=True)
         
-    if all_levels == False:
-        print("Only solving for levels 1 to", nlev)
-        index = numpy.where((init < nlev) & (final < nlev))[0]
-        init = init[index]
-        final = final[index]
-        rates = rates[index]    #sum all rates (the q's)
-    else:
-        lvdat = pyatomdb.atomdb.get_data(Z, z1, 'LV')
-        lvdat = lvdat[1].data
-        nlev = len(lvdat)
+    lvdat = pyatomdb.atomdb.get_data(Z, z1, 'LV')
+    lvdat = lvdat[1].data
+    nlev = len(lvdat)
                    
     matrix = numpy.zeros((nlev,nlev))
     B = numpy.zeros(nlev)
-    #populate matrix by summing rates for all processes
+    #populate full CR matrix by summing rates for all processes
     for i in range(len(init)):
         x = final[i]
         y = init[i]
         matrix[x][y] += rates[i]
         
-    #set up and solve matrix for level populations
+    #set up and solve CR matrix for level populations
     matrix[0][:] = 1.0
     B[0]=1.0
     lev_pop = numpy.linalg.solve(matrix,B)
     
-    #convert level populations into line lists & intensities
+    #convert level populations into line lists & intensities for excitation only
     ladat = pyatomdb.atomdb.get_data(Z, z1, 'LA')
-    ladat = ladat[1].data
-    
-    if all_levels == False:
-        in_range = ladat[ladat['UPPER_LEV'] < nlev+1] 
-    else:
-        in_range = ladat
+    in_range = ladat[1].data
         
     linelist = numpy.zeros(len(in_range), dtype=pyatomdb.apec.generate_datatypes('linetype')) 
     
@@ -74,20 +153,51 @@ def set_up(Z, z1, Te, dens, process, delta_r, transition, transition_2, all_leve
         linelist['epsilon'][i] = in_range['EINSTEIN_A'][i]*lev_pop[pop_level-1]
         upper_level[i] = in_range['UPPER_LEV'][i]
         lower_level[i] = in_range['LOWER_LEV'][i]
+        
+    #resolve CR matrix "A" using LA only (for cascading emission from ionization/recombination)
+    la_init, la_final, la_rates = pyatomdb.apec.gather_rates(Z, z1, Te, dens, do_la= True, \
+                            do_ec=False, do_ir=False, do_pc=False, do_ai=False)
+    la_matrix = numpy.zeros((nlev,nlev))
+    for i in range(len(init)):
+        x = final[i]
+        y = init[i]
+        la_matrix[x][y] += rates[i]
+    la_matrix[0][:] = 1.0
+    
+    #find fraction of each ion in plasma
+    pop_fraction = pyatomdb.apec.solve_ionbal_eigen(Z, Te, teunit='K')
+    print("population fractions", pop_fraction)
+    
+    #set up complete line list (emiss only due to excitation at this point)
+    full_linelist = numpy.zeros(len(in_range), dtype=pyatomdb.apec.generate_datatypes('linetype'))
+    full_linelist['lambda'] = linelist['lambda']
+    full_linelist['epsilon']= linelist['epsilon']
+    
+    #now add emissivity from ionization and recombination to excitation linelist (depending on z1)
+    if z1 == 1: #skip ionization
+        recomb_emiss = recombine(Z, z1, Te, dens, linelist, full_linelist, upper_level, lower_level, la_matrix, in_range, pop_fraction)
+        full_linelist['epsilon'] += recomb_emiss
+    elif z1 == Z+1: #skip recombination
+        ion_emiss = ionize(Z, z1, Te, dens, linelist, full_linelist, upper_level, lower_level, la_matrix, in_range, pop_fraction) 
+        full_linelist['epsilon'] += ion_emiss
+    else: #do both
+        recomb_emiss = recombine(Z, z1, Te, dens, linelist, full_linelist, upper_level, lower_level, la_matrix, in_range, pop_fraction)
+        ion_emiss = ionize(Z, z1, Te, dens, linelist, full_linelist, upper_level, lower_level, la_matrix, in_range, pop_fraction)
+        full_linelist['epsilon'] += recomb_emiss
+        full_linelist['epsilon'] += ion_emiss
     
     #set up sensitivity & partial derivatives tables
-    table = Table([linelist['lambda'], upper_level, lower_level, linelist['epsilon']], \
+    table = Table([full_linelist['lambda'], upper_level, lower_level, full_linelist['epsilon']], \
         names=('Lambda', 'Upper', 'Lower', 'Epsilon_orig'))
-    new_table = Table([linelist['lambda'], upper_level, lower_level], names=('Lambda', 'Upper', 'Lower'))
+    new_table = Table([full_linelist['lambda'], upper_level, lower_level], names=('Lambda', 'Upper', 'Lower'))
 
     #save variables 
     inputs = {}
     inputs.update( {'Z': Z, 'z1': z1, 'Te': Te, 'dens': dens, 'process': process, 'delta_r': delta_r, \
                     'transition': transition, 'transition_2': transition_2, \
-                    'all_levels': all_levels, 'nlev': nlev, 'npnts': npnts, \
-                    'show': show, 'wavelen': wavelen, 'corrthresh': corrthresh, 'e_signif': e_signif} )
+                    'npnts': npnts, 'show': show, 'wavelen': wavelen, 'corrthresh': corrthresh, 'e_signif': e_signif} )
     values = {}
-    values.update( {'matrix': matrix, 'B': B, 'in_range': in_range, 'linelist': linelist, 'table': table, 'new_table': new_table} )
+    values.update( {'matrix': matrix, 'B': B, 'in_range': in_range, 'full_linelist': full_linelist, 'table': table, 'new_table': new_table} )
     return inputs, values, transition
 
 def vary_a(inputs, values, transition):
@@ -102,9 +212,9 @@ def vary_a(inputs, values, transition):
     Returns the dictionaries input and values."""
     
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-    all_levels, nlev, npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
+    npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
-    matrix, B, in_range, linelist, table, new_table = [values.get(k) for k in values]
+    matrix, B, in_range, full_linelist, table, new_table = [values.get(k) for k in values]
     
     print("****************************************************")
     print("in vary_a, calculating rate for Te=%e and dens=%e"%(Te, dens))
@@ -135,7 +245,7 @@ def vary_a(inputs, values, transition):
         #get new matrix and resolve level pops with new A
         frac = str(round(x/old_a,2))
         new_matrix = matrix.copy()
-        new_linelist=linelist.copy()
+        new_linelist=full_linelist.copy()
         new_matrix[final_lev-1, initial_lev-1] += (x-old_a)   #off diagonal term
         new_matrix[initial_lev-1, initial_lev-1] -= (x-old_a)   #diagonal term
         new_matrix[0][:] = 1.0
@@ -178,9 +288,9 @@ def vary_exc(inputs, values, transition):
     Returns the dictionaries input and values."""
     
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-    all_levels, nlev, npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
+    npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
-    matrix, B, in_range, linelist, table, new_table = [values.get(k) for k in values]
+    matrix, B, in_range, full_linelist, table, new_table = [values.get(k) for k in values]
     
     print("****************************************************")
     print("in vary_exc, calculating rate for Te=%e and dens=%e"%(Te, dens))
@@ -211,7 +321,7 @@ def vary_exc(inputs, values, transition):
         #loop through varied rates, get new matrix and resolve level pops
         frac = str(round(x/old_rate,2))
         new_matrix = matrix.copy()
-        new_linelist=linelist.copy()
+        new_linelist=full_linelist.copy()
         new_matrix[final_lev-1, initial_lev-1] += (x-old_rate)   #off diagonal term
         new_matrix[initial_lev-1, initial_lev-1] -= (x-old_rate)   #diagonal term
         new_matrix[0][:] = 1.0
@@ -258,8 +368,8 @@ def get_tables(inputs, values):
     
     Returns table and new_table and the dictionaries inputs and results."""
     
-    Z, z1, Te, dens, process, delta_r, transition, transition_2, all_levels, \
-    nlev, npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
+    Z, z1, Te, dens, process, delta_r, transition, transition_2, \
+    npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
     table, new_table, new_linelist, q_max, q_min = [values.get(k) for k in values]
 
@@ -312,8 +422,8 @@ def plot_nei(inputs):
     """ Gets the non-equilibrium line emissivities for each driving ion and plots. Inputs
     is a dictionary outputted by set_up()."""
     
-    Z, z1, Te, dens, process, delta_r, transition, transition_2, all_levels, \
-    nlev, npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
+    Z, z1, Te, dens, process, delta_r, transition, transition_2, \
+    npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
     #get nei line emissivities and plot
     if process == 'A':
@@ -342,25 +452,25 @@ def plot_nei(inputs):
                 temp_ion = pyatomdb.atomic.int_to_roman(int(key))
                 number=str(int(key)-1)
                 label='Ionization of '+element+' '+number+'+'
-                axs[0,0].semilogy(emiss['Te'], emiss[key], label=label)
+                axs[0,0].loglog(emiss['Te'], emiss[key], label=label)
             if (int(key) == z1):
                 temp_ion = pyatomdb.atomic.int_to_roman(int(key))
                 number=str(int(key)-1)
                 label='Excitation from '+element+' '+number+'+'
-                axs[0,0].semilogy(emiss['Te'], emiss[key], label=label, linewidth=3)
+                axs[0,0].loglog(emiss['Te'], emiss[key], label=label, linewidth=3)
             if (isinstance(key, numpy.int32) == True) & (int(key) > z1):
                 temp_ion = pyatomdb.atomic.int_to_roman(int(key))
                 number=str(int(key)-1)
                 label='Recombination of '+element+' '+number+'+'
-                axs[0,0].semilogy(emiss['Te'], emiss[key], label=label)
+                axs[0,0].loglog(emiss['Te'], emiss[key], label=label)
             
     axs[0,0].legend()
     #plt.savefig(name+'nei_emiss.pdf')
     
 def wrapper_plot_nei(inputs):   #get nei line emissivities and plot
     
-    Z, z1, Te, dens, process, delta_r, transition, transition_2, all_levels, \
-    nlev, npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
+    Z, z1, Te, dens, process, delta_r, transition, transition_2, \
+    npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
     if process == 'A':
         emiss = pyatomdb.spectrum.get_nei_line_emissivity(Z, z1, transition[0], transition[1])
@@ -386,17 +496,17 @@ def wrapper_plot_nei(inputs):   #get nei line emissivities and plot
                 temp_ion = pyatomdb.atomic.int_to_roman(int(key))
                 number=str(int(key)-1)
                 label='Ionization of '+element+' '+number+'+'
-                axs[0,0].semilogy(emiss['Te'], emiss[key], label=label)
+                axs[0,0].loglog(emiss['Te'], emiss[key], label=label)
             if (int(key) == z1):
                 temp_ion = pyatomdb.atomic.int_to_roman(int(key))
                 number=str(int(key)-1)
                 label='Excitation from '+element+' '+number+'+'
-                axs[0,0].semilogy(emiss['Te'], emiss[key], label=label, linewidth=3)
+                axs[0,0].loglog(emiss['Te'], emiss[key], label=label, linewidth=3)
             if (isinstance(key, numpy.int32) == True) & (int(key) > z1):
                 temp_ion = pyatomdb.atomic.int_to_roman(int(key))
                 number=str(int(key)-1)
                 label='Recombination of '+element+' '+number+'+'
-                axs[0,0].semilogy(emiss['Te'], emiss[key], label=label)
+                axs[0,0].loglog(emiss['Te'], emiss[key], label=label)
             
     axs[0,0].legend()
     
@@ -442,8 +552,8 @@ def plot_sensitivity(inputs, new_table):
     Plots the lines affected by the parameter(s) changed, including the original transition.
     Currently plotting for wavelengths between 10-20 Angstroms (as set by mask1 and mask2 below).""" 
     
-    Z, z1, Te, dens, process, delta_r, transition, transition_2, all_levels, \
-    nlev, npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
+    Z, z1, Te, dens, process, delta_r, transition, transition_2, \
+    npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
     element = pyatomdb.atomic.Ztoelsymb(Z)
     ion = pyatomdb.atomic.int_to_roman(z1)
@@ -497,8 +607,8 @@ def wrapper_plot_sensitivity(inputs, new_table1, new_table2): #needs to be finis
     By default, will plot for wavelengths between 10-20 Angstroms, unless a wavelength
     range is specified by wavelen=()."""
     
-    Z, z1, Te, dens, process, delta_r, transition, transition_2, all_levels, \
-    nlev, npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
+    Z, z1, Te, dens, process, delta_r, transition, transition_2, \
+    npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
     element = pyatomdb.atomic.Ztoelsymb(Z)
     ion = pyatomdb.atomic.int_to_roman(z1)
@@ -573,7 +683,7 @@ def run_line_diagnostics(table, inputs, values, which_transition):
     
     #read in inputs and values from set_up() and table from get_table()
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-    all_levels, nlev, npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
+    npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
 
     print("////////////////////////////////////////////////////////////////")
     print("Now running line diagnostics for transition:", which_transition)
@@ -596,7 +706,7 @@ def run_line_diagnostics(table, inputs, values, which_transition):
     #vary temperature and recalculate emissivities 
     print("\nChanging temperature now.\n")
     if isinstance(Te, list) != True:
-        t_bins = numpy.geomspace(Te/10, Te*10, num=20)
+        t_bins = numpy.geomspace(Te/10, Te*10, num=3) #20
     elif isinstance(Te, list) == True:
         t_bins = numpy.geomspace(Te[0], Te[2], num=20)
 
@@ -609,8 +719,8 @@ def run_line_diagnostics(table, inputs, values, which_transition):
     Te_eps_max=[]
     for temp_Te in temp_bins:
         print("Temperature is:", temp_Te)
-        Te_inputs, Te_values, transition = set_up(Z, z1, temp_Te, dens, process, delta_r, which_transition, transition_2, all_levels, \
-           nlev, npnts, show, wavelen, corrthresh, e_signif)
+        Te_inputs, Te_values, transition = set_up(Z, z1, temp_Te, dens, process, delta_r, which_transition, transition_2, \
+           npnts, show, wavelen, corrthresh, e_signif)
         if process == 'A':
             Te_new_inputs, Te_new_values = vary_a(Te_inputs, Te_values, which_transition)
             Te_table, Te_new_table, Te_inputs, Te_results = get_tables(Te_new_inputs, Te_new_values)
@@ -629,7 +739,7 @@ def run_line_diagnostics(table, inputs, values, which_transition):
     #vary density and recalculate emissivities
     print("\nChanging density now.\n")
     if isinstance(dens, int) == True:
-        bins = numpy.geomspace(10e0, 10e16, num=8)
+        bins = numpy.geomspace(10e0, 10e16, num=3) #8
     elif isinstance(dens, list) == True:
         bins = numpy.geomspace(dens[0], dens[2], num=8)
 
@@ -643,8 +753,8 @@ def run_line_diagnostics(table, inputs, values, which_transition):
     dens_eps_max=[]
     for temp_dens in dens_bins:
         print("Density is:", temp_dens)
-        dens_inputs, dens_values, transition = set_up(Z, z1, Te, temp_dens, process, delta_r, which_transition, transition_2, all_levels, \
-           nlev, npnts, show, wavelen, corrthresh, e_signif)
+        dens_inputs, dens_values, transition = set_up(Z, z1, Te, temp_dens, process, delta_r, which_transition, transition_2, \
+           npnts, show, wavelen, corrthresh, e_signif)
         if process == 'A':
             dens_new_inputs, dens_new_values = vary_a(dens_inputs, dens_values, which_transition)
             dens_table, dens_new_table, dens_inputs, dens_results = get_tables(dens_new_inputs, dens_new_values)
@@ -684,7 +794,7 @@ def run_line_diagnostics(table, inputs, values, which_transition):
 
 def wrapper_plot_line_diagnostics(inputs, line_diagnostics, line_diagnostics_2):
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-    all_levels, nlev, npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
+    npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
     temp_bins, dens_bins, Te_eps_orig, Te_eps_min, Te_eps_max, dens_eps_orig, \
             dens_eps_min, dens_eps_max, name, label, transition = [line_diagnostics.get(k) for k in line_diagnostics]
@@ -773,7 +883,7 @@ def plot_line_diagnostics(inputs, line_diagnostics):
     Plots emissivity as a function of temperature and density for the specified single transition."""
 
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-    all_levels, nlev, npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
+    npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
     file = open('line_diagnostics', 'rb')
     line_diagnostics = pickle.load(file)
@@ -836,7 +946,7 @@ def wrapper_run_line_diagnostics(table1, inputs1, values1, table2, inputs2, valu
     from varying temperature and density independently."""
     
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-    all_levels, nlev, npnts, show, wavelen, corrthresh, e_signif = [inputs1.get(k) for k in inputs1]
+    npnts, show, wavelen, corrthresh, e_signif = [inputs1.get(k) for k in inputs1]
 
     line_ratio_diagnostics = {}
     
@@ -902,7 +1012,7 @@ def plot_line_ratio_diagnostics(inputs, line_ratio_diagnostics):
     temperature and density."""
 
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-    all_levels, nlev, npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
+    npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
     file = open('line_diagnostics', 'rb')
     line_diagnostics = pickle.load(file)
@@ -959,11 +1069,11 @@ def wrapper_check_sensitivity(transition_list):
     for transition in transition_list:
         print("Checking sensitivity for transition", transition)
         check_sensitivity(Z, z1, Te, dens, process, delta_r, \
-            transition, transition_2, all_levels, nlev, npnts, show, wavelen, corrthresh, e_signif)
+            transition, transition_2, npnts, show, wavelen, corrthresh, e_signif)
         
         
 def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_2=None, \
-            all_levels=None, nlev=None, npnts=None, show=True, wavelen=(10,20), corrthresh=10e-5, e_signif=0.0):
+            npnts=None, show=True, wavelen=(10,20), corrthresh=10e-5, e_signif=0.0):
 
     """
     Check emissivity sensitivity for specified element, ion, and transition.
@@ -995,13 +1105,6 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
     transition_2 : tuple
     if a second transition is provided, give line ratio diagnostics
     
-    all_levels : boolean
-    if set to True (Default), will check sensitivity on entire ion
-    if set to False, need to specify nlev 
-    
-    nlev : float
-    number of energy levels of ion to check sensitivity for
-    
     npnts : int
     number of points to calculate emissivity for
     
@@ -1028,15 +1131,12 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
     
     print("Z="+str(Z), "z1="+str(z1), "Te="+str(Te), "dens="+str(dens), "process="+str(process), \
           "delta_r="+str(delta_r), "transition="+str(transition), "transition2="+str(transition_2), \
-          "all_levels="+str(all_levels), "nlev="+str(nlev), "npnts="+str(npnts), "show="+str(show),
-            "wavelength range="+str(wavelen), "correlation threshold="+str(corrthresh), "epsilon significance="+str(e_signif))
+          "npnts="+str(npnts), "show="+str(show), "wavelength range="+str(wavelen), "correlation threshold="+str(corrthresh), "epsilon significance="+str(e_signif))
     
     if npnts is None:
         npnts = 3
     elif transition_2 is None:
         transition_2 = []
-    elif all_levels is None:
-        all_levels = True
     elif show is None:
         show = True
     elif corrthresh is None:
@@ -1048,7 +1148,7 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
         
     if transition_2 is None:    #check sensitivity for a single transition
         inputs, values, transition = set_up(Z, z1, Te, dens, process, delta_r, \
-                transition, transition_2, all_levels, nlev, npnts, show, wavelen, corrthresh, e_signif)
+                transition, transition_2, npnts, show, wavelen, corrthresh, e_signif)
         if process == 'A':
             new_inputs, new_values = vary_a(inputs, values, transition)
         elif process == 'exc':
@@ -1072,10 +1172,10 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
 
     elif transition_2 != None:  #calculate diagnostics for a line ratio 
         inputs, values, transition = set_up(Z, z1, Te, dens, process, delta_r, \
-                transition, transition_2, all_levels, nlev, npnts, show, wavelen, corrthresh, e_signif)
+                transition, transition_2, npnts, show, wavelen, corrthresh, e_signif)
 
         inputs_2, values_2, transition_2 = set_up(Z, z1, Te, dens, process, delta_r, \
-                transition, transition_2, all_levels, nlev, npnts, show, wavelen, corrthresh, e_signif)
+                transition, transition_2, npnts, show, wavelen, corrthresh, e_signif)
         
         if process == 'A':
             new_inputs, new_values = vary_a(inputs, values, transition)

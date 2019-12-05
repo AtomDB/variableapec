@@ -461,7 +461,12 @@ def get_tables(inputs, values):
     epsilon_corr = Column(name = 'dE/dE_orig', data = (epsilon_max-table['Epsilon_1'])/table['Epsilon_orig'])
     abs_epsilon_corr = Column(name = '|dE/dE_orig|', data = [abs(val) for val in epsilon_corr])
     new_table.add_columns([abs_epsilon_corr])
-    new_table.sort('|dE/dE_orig|', reverse=True)
+    try:
+      new_table.sort('|dE/dE_orig|', reverse=True)
+    except TypeError:
+      new_table.sort('|dE/dE_orig|')
+      new_table = new_table[::-1]
+
     
     #apply filters
     if corrthresh != 0.0:     #only show lines whose "epsilon correlation" >= than specified value

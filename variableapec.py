@@ -44,17 +44,12 @@ def ionize(Z, z1, Te, dens, la_matrix, in_range, pop_fraction):
     neg_ion_B[0]=1.0
     ion_levpop = numpy.linalg.solve(la_matrix,neg_ion_B)
 
-    ion_linelist = numpy.zeros(len(in_range), dtype=pyatomdb.apec.generate_datatypes('linetype')) 
-
-    #ion_upper_level= numpy.zeros(len(in_range))
-    #ion_lower_level = numpy.zeros(len(in_range))
+    ion_linelist = numpy.zeros(len(in_range), dtype=pyatomdb.apec.generate_datatypes('linetype'))
     
     for i in range(len(in_range)):
         ion_linelist['lambda'][i] = in_range['WAVELEN'][i]
         ion_pop_level = in_range['UPPER_LEV'][i]
         ion_linelist['epsilon'][i] = in_range['EINSTEIN_A'][i]*ion_levpop[ion_pop_level-1]
-        #ion_upper_level[i] = in_range['UPPER_LEV'][i]
-        #ion_lower_level[i] = in_range['LOWER_LEV'][i]
         
     ion_linelist['epsilon']=[e*pop_fraction[z1_drv-1] for e in ion_linelist['epsilon']]
     
@@ -89,17 +84,12 @@ def recombine(Z, z1, Te, dens, la_matrix, in_range, pop_fraction):
     recomb_levpop = numpy.linalg.solve(la_matrix,neg_recomb_B)
 
     recomb_linelist = numpy.zeros(len(in_range), dtype=pyatomdb.apec.generate_datatypes('linetype'))
-
-    #recomb_upper_level= numpy.zeros(len(in_range))
-    #recomb_lower_level = numpy.zeros(len(in_range))
     
     #calculate emissivity from recombination
     for i in range(len(in_range)):
         recomb_linelist['lambda'][i] = in_range['WAVELEN'][i]
         recomb_pop_level = in_range['UPPER_LEV'][i]
         recomb_linelist['epsilon'][i] = in_range['EINSTEIN_A'][i]*recomb_levpop[recomb_pop_level-1]
-        #recomb_upper_level[i] = in_range['UPPER_LEV'][i]
-        #recomb_lower_level[i] = in_range['LOWER_LEV'][i]
     
     #multiply by fraction of plasma from z1_drv
     recomb_linelist['epsilon']=[e*pop_fraction[z1_drv-1] for e in recomb_linelist['epsilon']]
@@ -164,7 +154,6 @@ def set_up(Z, z1, Te, dens, process, delta_r, transition, transition_2, \
     
     #find fraction of each ion in plasma
     pop_fraction = pyatomdb.apec.solve_ionbal_eigen(Z, Te, teunit='K')
-    print("population fractions", pop_fraction)
     
     #set up complete line list (emiss only due to excitation at this point)
     full_linelist = numpy.zeros(len(in_range), dtype=pyatomdb.apec.generate_datatypes('linetype'))
@@ -229,7 +218,6 @@ def vary_a(inputs, values, transition):
     #vary A values
     min_a = 1-delta_r
     max_a = 1+delta_r
-    #new_a = numpy.linspace(min_a*old_a, max_a*old_a, npnts)
     new_a = [min_a*old_a, max_a*old_a]
     print("old A value =", old_a)
     print("new A values =", new_a)
@@ -268,11 +256,12 @@ def vary_a(inputs, values, transition):
             x = la_final[i]
             y = la_init[i]
             la_matrix[x][y] += la_rates[i]
-        la_matrix[0][:] = 1.0
 
         #update la_matrix with new A value
         la_matrix[final_lev-1, initial_lev-1] += (x-old_a)
         la_matrix[initial_lev-1, initial_lev-1] -= (x-old_a)
+
+        la_matrix[0][:] = 1.0
 
         # find fraction of each ion in plasma
         pop_fraction = pyatomdb.apec.solve_ionbal_eigen(Z, Te, teunit='K')
@@ -304,15 +293,9 @@ def vary_a(inputs, values, transition):
     values.update( {'table': table, 'new_table': new_table, 'new_linelist': new_linelist, \
                     'q_max': q_max, 'q_min': q_min} )
     
-    element = pyatomdb.atomic.Ztoelsymb(Z)
-    ion = pyatomdb.atomic.int_to_roman(z1)
-    percent=str(delta_r*100)+'%'
-    print("\nFor", element, ion + ", changed inputs:", "A value for level", \
-          str(initial_lev)+"->"+str(final_lev), percent)
-    
     return inputs, values
     
-def vary_exc(inputs, values, transition):
+def vary_exc(inputs, values, which_transition):
     
     """ Inputs and values are dictionaries outputted by set_up() subroutine. Transition is a tuple
     outputted by set_up() and dictates which transition to vary the excitation rate for by the specified
@@ -328,15 +311,15 @@ def vary_exc(inputs, values, transition):
     
     matrix, B, in_range, linelist, table, new_table = [values.get(k) for k in values]
     
-    print("****************************************************")
-    print("in vary_exc, calculating rate for Te=%e and dens=%e"%(Te, dens))
-    print("****************************************************")
+    print("***********************************************************************************")
+    print("in vary_exc for ' + which_transition + ', calculating rate for Te=%e and dens=%e" %(Te, dens))
+    print("***********************************************************************************")
     
     exc_init, exc_final, exc_rates = pyatomdb.apec.gather_rates(Z, z1, Te, dens, do_la= False, \
                         do_ec=True, do_ir=False, do_pc=False, do_ai=False)
     
-    initial_lev=transition[0]
-    final_lev=transition[1]
+    initial_lev=which_transition[0]
+    final_lev=which_transition[1]
     
     old_rate_index = numpy.where((exc_final == final_lev-1) & (exc_init == initial_lev-1))[0]
     old_rate = exc_rates[old_rate_index][0]
@@ -346,13 +329,12 @@ def vary_exc(inputs, values, transition):
     #vary rate
     min_rate = 1-delta_r
     max_rate = 1+delta_r
-    #new_rate = numpy.linspace(min_rate*old_rate, max_rate*old_rate, npnts)
     new_rate = [min_rate*old_rate, max_rate*old_rate]
     print("old rate =", old_rate)
     print("new rates =", new_rate)
     q_max = new_rate[-1]
     q_min = new_rate[0]
-        
+
     index=1
     for x in new_rate:
         #loop through varied rates, get new matrix and resolve level pops
@@ -407,18 +389,13 @@ def vary_exc(inputs, values, transition):
         #update sensitivity table 
         new_col = Column(name='Epsilon_'+str(index), data = new_linelist['epsilon'], unit = frac+' rate')
         table.add_columns([new_col])
-        
-        index+=1
+
+        index +=1
     
     values = {}
     values.update( {'table': table, 'new_table': new_table, 'new_linelist': new_linelist, \
                     'q_max': q_max, 'q_min': q_min} )
 
-    element = pyatomdb.atomic.Ztoelsymb(Z)
-    ion = pyatomdb.atomic.int_to_roman(z1)
-    percent=str(delta_r*100)+'%'
-    print("\nFor", element, ion + ", changed inputs:", "excitation rate from level", \
-          str(initial_lev)+"->"+str(final_lev), percent)
     
     return inputs, values
 
@@ -473,10 +450,6 @@ def get_tables(inputs, values):
         new_table = new_table[new_table['|dE/dE_orig|'] >= corrthresh]
     elif e_signif != 0.0:    #only show lines with partial epsilon/partial rate derivative is >= specified value
         new_table = new_table[new_table['dE/dR'] >= eps_der]
-
-    print("Lines affected at Te="+str(Te) + ", dens="+str(dens))
-    print(table)
-    print(new_table)
     
     #update output dictionary
     results={}
@@ -503,21 +476,17 @@ def plot_nei(inputs):
     #get nei line emissivities and plot
     if process == 'A':
         emiss = pyatomdb.spectrum.get_nei_line_emissivity(Z, z1, transition[0], transition[1])
-        text = "Transition: "+str(transition[0])+'->'+str(transition[1])
     elif process == 'exc':
         emiss = pyatomdb.spectrum.get_nei_line_emissivity(Z, z1, transition[1], transition[0])
-        text = "Transition: "+str(transition[1])+'->'+str(transition[0])
         
     element = pyatomdb.atomic.Ztoelsymb(Z)
     ion = pyatomdb.atomic.int_to_roman(z1)
     line=str(transition[0])+'-'+str(transition[1])
     name=element+'_'+ion+'_'+process+'_'+line+'_'
 
-    axs[0,0].set_xlabel('Temperature in keV', fontsize=14) 
-    axs[0,0].set_ylabel('Emissivity in \n$\mathit{ph}$ $cm^3$ $s^{-1}$ $bin^{-1}$', fontsize=14)
+    axs[0,0].set_xlabel('Temperature in keV', fontsize=12)
+    axs[0,0].set_ylabel('Emissivity in \n$\mathit{ph}$ $cm^3$ $s^{-1}$ $bin^{-1}$', fontsize=12)
     axs[0,0].tick_params(labelsize=12)
-    #anchored_text = AnchoredText(element+' '+ion+'\n'+text, loc='upper right', frameon=False)
-    #axs[0,0].add_artist(anchored_text)
     
     for key in emiss.keys():
         if isinstance(key, numpy.int32) == True:
@@ -533,9 +502,9 @@ def plot_nei(inputs):
                 number=str(int(key)-1)
                 label='Recombination of '+element+' '+number+'+'
                 axs[0,0].loglog(emiss['Te'], emiss[key], label=label)
-            
-    axs[0,0].legend()
-    #plt.savefig(name+'nei_emiss.pdf')
+
+
+    axs[0,0].legend(fontsize = 'x-small')
     
 def wrapper_plot_nei(inputs):   #get nei line emissivities and plot
     
@@ -553,10 +522,10 @@ def wrapper_plot_nei(inputs):   #get nei line emissivities and plot
     line=str(transition[0])+'-'+str(transition[1])
     name=element+'_'+ion+'_'+process+'_'+line+'_'
     
-    axs[0,0].set_xlabel('Temperature in keV', fontsize=14) 
-    axs[0,0].set_ylabel('Emissivity', fontsize=14)
+    axs[0,0].set_xlabel('Temperature in keV', fontsize=12)
+    axs[0,0].set_ylabel('Emissivity in \n$\mathit{ph}$ $cm^3$ $s^{-1}$ $bin^{-1}$', fontsize=12)
     axs[0,0].tick_params(labelsize=12)
-    anchored_text = AnchoredText(orig_text, loc='lower right', frameon=False)
+    anchored_text = AnchoredText(orig_text, loc='upper right', frameon=False)
     axs[0,0].add_artist(anchored_text)
     
     for key in emiss.keys():
@@ -574,43 +543,38 @@ def wrapper_plot_nei(inputs):   #get nei line emissivities and plot
                 label='Recombination of '+element+' '+number+'+'
                 axs[0,0].loglog(emiss['Te'], emiss[key], label=label)
             
-    axs[0,0].legend()
+    axs[0,0].legend(fontsize = 'x-small')
     
     #now repeat for transition_2
-    # if process == 'A':
-    #     emiss = pyatomdb.spectrum.get_nei_line_emissivity(Z, z1, transition_2[0], transition_2[1])
-    #     text = "Transition: "+str(transition_2[0])+'->'+str(transition_2[1])
-    # elif process == 'exc':
-    #     emiss = pyatomdb.spectrum.get_nei_line_emissivity(Z, z1, transition_2[1], transition_2[0])
-    #     text = "Transition: "+str(transition_2[1])+'->'+str(transition_2[0])
+    if process == 'A':
+        emiss_2 = pyatomdb.spectrum.get_nei_line_emissivity(Z, z1, transition_2[0], transition_2[1])
+    elif process == 'exc':
+        emiss_2 = pyatomdb.spectrum.get_nei_line_emissivity(Z, z1, transition_2[1], transition_2[0])
 
     text = '{0:g}'.format(transition_2[0]) + '->' + '{0:g}'.format(transition_2[1])
     
-    axs[0,1].set_xlabel('Temperature in keV', fontsize=14) 
-    axs[0,1].set_ylabel('Emissivity', fontsize=14)
-    axs[0,1].tick_params(labelsize=18)
-    anchored_text = AnchoredText(text, loc='lower right', frameon=False)
+    axs[0,1].set_xlabel('Temperature in keV', fontsize=12)
+    axs[0,1].set_ylabel('Emissivity in \n$\mathit{ph}$ $cm^3$ $s^{-1}$ $bin^{-1}$', fontsize=12)
+    axs[0,1].tick_params(labelsize=12)
+    anchored_text = AnchoredText(text, loc='upper right', frameon=False)
     axs[0,1].add_artist(anchored_text)
     
-    for key in emiss.keys():
+    for key in emiss_2.keys():
         if isinstance(key, numpy.int32) == True:
             if (int(key) < z1):
-                temp_ion = pyatomdb.atomic.int_to_roman(int(key))
                 number=str(int(key)-1)
                 label='Ionization of '+element+' '+number+'+'
-                axs[0,1].semilogy(emiss['Te'], emiss[key], label=label)
+                axs[0,1].loglog(emiss_2['Te'], emiss_2[key], label=label)
             if (int(key) == z1):
-                temp_ion = pyatomdb.atomic.int_to_roman(int(key))
                 number=str(int(key)-1)
                 label='Excitation from '+element+' '+number+'+'
-                axs[0,1].semilogy(emiss['Te'], emiss[key], label=label, linewidth=3)
+                axs[0,1].loglog(emiss_2['Te'], emiss_2[key], label=label, linewidth=3)
             if (isinstance(key, numpy.int32) == True) & (int(key) > z1):
-                temp_ion = pyatomdb.atomic.int_to_roman(int(key))
                 number=str(int(key)-1)
                 label='Recombination of '+element+' '+number+'+'
-                axs[0,1].semilogy(emiss['Te'], emiss[key], label=label)
+                axs[0,1].loglog(emiss_2['Te'], emiss_2[key], label=label)
             
-    axs[0,1].legend()
+    axs[0,1].legend(fontsize = 'x-small')
     
 def plot_sensitivity(inputs, new_table):
     
@@ -629,22 +593,13 @@ def plot_sensitivity(inputs, new_table):
     name=element+'_'+ion+'_'+process+'_'+line+'_'
 
     #set up plot of "sensitive epsilons"
-    axs[0,1].set_xlabel('Wavelength ($\AA$)', fontsize=14) 
-    axs[0,1].set_ylabel('% Emissivity Change', fontsize=14)
+    axs[0,1].set_xlabel('Wavelength ($\AA$)', fontsize=12)
+    axs[0,1].set_ylabel('% Emissivity Change', fontsize=12)
     axs[0,1].tick_params(labelsize=12)
-    temp = '%.E' % Decimal(Te) +'K'
-    percentage = str(delta_r*100)+'%'
-    if process == 'A':
-        text='A value varied by \n $\Delta$ $\pm$' + percentage + ', ' + temp
-    elif process == 'exc':
-        text='Direct excitation rate varied by \n $\Delta$ $\pm$' + percentage + ', ' + temp
-    anchored_text = AnchoredText(text, loc='center', frameon=False)
-    #axs[0,1].add_artist(anchored_text)
     
     #filter data for significance
     cutoff_data = new_table[new_table['|dE/dE_orig|'] >= corrthresh]
-    cutoff_data = cutoff_data[(wavelen[0] < cutoff_data['Lambda'])] 
-    cutoff_data = cutoff_data[cutoff_data['Lambda'] < wavelen[1]]
+    cutoff_data = cutoff_data[(wavelen[0] < cutoff_data['Lambda']) & (cutoff_data['Lambda'] < wavelen[1])]
     
     #plot wavelength vs. % emissivity change
     axs[0,1].semilogy(cutoff_data['Lambda'], cutoff_data['|dE/dE_orig|'], linestyle='', marker='o', label=transition)
@@ -660,10 +615,9 @@ def plot_sensitivity(inputs, new_table):
     for (x,y,label) in zip(numpy.array(cutoff_data['Lambda']),numpy.array(cutoff_data['|dE/dE_orig|']),transition_labels):
         axs[0,1].annotate(label, xy=(x,y))
 
-    #plt.savefig(name+'epsilon_sensitivity.pdf')
-    axs[0,1].legend()
+    axs[0,1].legend(fontsize='x-small')
     
-def wrapper_plot_sensitivity(inputs, new_table1, new_table2): #needs to be finished
+def wrapper_plot_sensitivity(inputs, new_table1, new_table2):
     
     """ Results is a dictionary.
     
@@ -673,73 +627,12 @@ def wrapper_plot_sensitivity(inputs, new_table1, new_table2): #needs to be finis
     By default, will plot for wavelengths between 10-20 Angstroms, unless a wavelength
     range is specified by wavelen=()."""
 
-    
-    # element = pyatomdb.atomic.Ztoelsymb(Z)
-    # ion = pyatomdb.atomic.int_to_roman(z1)
-    # temp = '%.E' % Decimal(Te) +'K'
-    # percentage = '{0:g}'.format(delta_r*100)+'%'
-    # density = 'dens='+str(dens)
-    # line1=str(transition[0])+'-'+str(transition[1])
-    # line2=str(transition_2[0])+'-'+str(transition_2[1])
-    # name=element+'_'+ion+'_'+process+'_'+line1+'_'+line2+'_'
-    #
-    # #set up plot of "sensitive epsilons"
-    # fig1 = plt.figure()
-    # ax1 = fig1.add_subplot(111)
-    # ax1.set_xlabel('Wavelength ($\AA$)') #fontsize=18)
-    # ax1.set_ylabel('% Emissivity Change') #fontsize=18)
-    # #ax1.tick_params(axis='x', labelsize=18)
-    # temp = '%.E' % Decimal(Te) +'K'
-    # percentage = str(delta_r*100)+'%'
-    # if process == 'A':
-    #     text='A value varied by \n $\Delta$ $\pm$' + percentage + ', ' + temp
-    # elif process == 'exc':
-    #     text='Direct excitation rate \n varied by $\Delta$ $\pm$' + percentage + ', ' + temp
-    # anchored_text = AnchoredText(text, loc='center', frameon=False)
-    # ax1.add_artist(anchored_text)
-    #
-    # #filter data for significance
-    # cutoff_data1 = new_table1[new_table1['|dE/dE_orig|'] >= corrthresh]
-    # cutoff_data1 = cutoff_data1[(wavelen[0] < cutoff_data1['Lambda'])]
-    # cutoff_data1 = cutoff_data1[cutoff_data1['Lambda'] < wavelen[1]]
-    # cutoff_data2 = new_table2[new_table2['|dE/dE_orig|'] >= corrthresh]
-    # cutoff_data2 = cutoff_data2[(wavelen[0] < cutoff_data2['Lambda'])]
-    # cutoff_data2 = cutoff_data2[cutoff_data2['Lambda'] < wavelen[1]]
-    #
-    # #plot wavelength vs. % emissivity change for both transitions
-    # ax1.semilogy(cutoff_data1['Lambda'], cutoff_data1['|dE/dE_orig|'], linestyle='', marker='o', label=transition)
-    # ax1.semilogy(cutoff_data2['Lambda'], cutoff_data2['|dE/dE_orig|'], linestyle='', marker='o', label=transition_2)
-    #
-    # #label each point with transition
-    # transition_labels_1=[]
-    # transition_labels_2=[]
-    # for x in cutoff_data1:
-    #     if process == 'A':
-    #         transition_name_1 = '{0:g}'.format(x['Upper'])+'->'+'{0:g}'.format(x['Lower'])
-    #     if process == 'exc':
-    #         transition_name_1 = '{0:g}'.format(x['Lower'])+'->'+'{0:g}'.format(x['Upper'])
-    #     transition_labels_1.append(transition_name_1)
-    # for y in cutoff_data2:
-    #     if process == 'A':
-    #         transition_name_2 = '{0:g}'.format(y['Upper'])+'->'+'{0:g}'.format(y['Lower'])
-    #     if process == 'exc':
-    #         transition_name_2 = '{0:g}'.format(y['Lower'])+'->'+'{0:g}'.format(y['Upper'])
-    #     transition_labels_2.append(transition_name_2)
-    # for (x,y,label) in zip(numpy.array(cutoff_data1['Lambda']),numpy.array(cutoff_data1['|dE/dE_orig|']),transition_labels_1):
-    #     ax1.annotate(label, xy=(x,y))
-    # for (x,y,label) in zip(numpy.array(cutoff_data2['Lambda']),numpy.array(cutoff_data2['|dE/dE_orig|']),transition_labels_2):
-    #     ax1.annotate(label, xy=(x,y))
-    #
-    #
-    # plt.legend()
-    # plt.savefig(name+'epsilon_sensitivity.pdf')
-
     #plot sensitive epsilons for first transition
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
     npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
 
-    axs[1, 0].set_xlabel('Wavelength ($\AA$)', fontsize=14)
-    axs[1, 0].set_ylabel('% Emissivity Change', fontsize=14)
+    axs[1, 0].set_xlabel('Wavelength ($\AA$)', fontsize=12)
+    axs[1, 0].set_ylabel('% Emissivity Change', fontsize=12)
     axs[1, 0].tick_params(labelsize=12)
 
     # filter data for significance
@@ -762,37 +655,37 @@ def wrapper_plot_sensitivity(inputs, new_table1, new_table2): #needs to be finis
                              transition_labels):
         axs[1, 0].annotate(label, xy=(x, y))
 
-    axs[1, 0].legend()
+    axs[1, 0].legend(fontsize='x-small')
 
     #now plot sensitive epsilons for second transition
     # Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-    # npnts, show, wavelen, corrthresh, e_signif = [inputs_2.get(k) for k in inputs_2]
+    # npnts, show, wavelen, corrthresh, e_signif = [inputs_2.get(n) for n in inputs_2]
 
-    axs[1, 1].set_xlabel('Wavelength ($\AA$)', fontsize=14)
-    axs[1, 1].set_ylabel('% Emissivity Change', fontsize=14)
+    axs[1, 1].set_xlabel('Wavelength ($\AA$)', fontsize=12)
+    axs[1, 1].set_ylabel('% Emissivity Change', fontsize=12)
     axs[1, 1].tick_params(labelsize=12)
 
     # filter data for significance
-    cutoff_data = new_table2[new_table2['|dE/dE_orig|'] >= corrthresh]
-    cutoff_data = cutoff_data[(wavelen[0] < cutoff_data['Lambda'])]
-    cutoff_data = cutoff_data[cutoff_data['Lambda'] < wavelen[1]]
+    cutoff_data2 = new_table2[new_table2['|dE/dE_orig|'] >= corrthresh]
+    cutoff_data2 = cutoff_data2[(wavelen[0] < cutoff_data2['Lambda'])]
+    cutoff_data2 = cutoff_data2[cutoff_data2['Lambda'] < wavelen[1]]
 
     # plot wavelength vs. % emissivity change
-    axs[1, 1].semilogy(cutoff_data['Lambda'], cutoff_data['|dE/dE_orig|'], linestyle='', marker='o', label=transition)
+    axs[1, 1].semilogy(cutoff_data2['Lambda'], cutoff_data2['|dE/dE_orig|'], linestyle='', marker='o', label=transition_2)
 
     # label each point w/ transition
     transition_labels = []
-    for x in cutoff_data:
+    for x in cutoff_data2:
         if process == 'A':
             transition_name = '{0:g}'.format(x['Upper']) + '->' + '{0:g}'.format(x['Lower'])
         if process == 'exc':
             transition_name = '{0:g}'.format(x['Lower']) + '->' + '{0:g}'.format(x['Upper'])
         transition_labels.append(transition_name)
-    for (x, y, label) in zip(numpy.array(cutoff_data['Lambda']), numpy.array(cutoff_data['|dE/dE_orig|']),
+    for (x, y, label) in zip(numpy.array(cutoff_data2['Lambda']), numpy.array(cutoff_data2['|dE/dE_orig|']),
                              transition_labels):
         axs[1, 1].annotate(label, xy=(x, y))
 
-    axs[1, 1].legend()
+    axs[1, 1].legend(fontsize='x-small')
 
         
 def run_line_diagnostics(table, inputs, values, which_transition):
@@ -806,7 +699,7 @@ def run_line_diagnostics(table, inputs, values, which_transition):
     the original, min, and max emissivities, the name of element and ion, label of what process varied
     and by how much, and which_transition."""
     
-    #read in inputs and values from set_up() and table from get_table()
+    #read in inputs and values from set_up()
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
     npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
 
@@ -831,7 +724,7 @@ def run_line_diagnostics(table, inputs, values, which_transition):
     #vary temperature and recalculate emissivities 
     print("\nChanging temperature now.\n")
     if isinstance(Te, list) != True:
-        t_bins = numpy.geomspace(Te/10, Te*10, num=3) #20
+        t_bins = numpy.geomspace(Te/10, Te*10, num=20) #20
     elif isinstance(Te, list) == True:
         t_bins = numpy.geomspace(Te[0], Te[2], num=20)
 
@@ -849,11 +742,11 @@ def run_line_diagnostics(table, inputs, values, which_transition):
         if process == 'A':
             Te_new_inputs, Te_new_values = vary_a(Te_inputs, Te_values, which_transition)
             Te_table, Te_new_table, Te_inputs, Te_results = get_tables(Te_new_inputs, Te_new_values)
-            line_index = numpy.where((Te_table['Upper'] == transition[0]) & (Te_table['Lower'] == transition[1]))[0]
+            line_index = numpy.where((Te_table['Upper'] == which_transition[0]) & (Te_table['Lower'] == which_transition[1]))[0]
         elif process == 'exc':
             Te_new_inputs, Te_new_values = vary_exc(Te_inputs, Te_values, which_transition)
             Te_table, Te_new_table, Te_inputs, Te_results = get_tables(Te_new_inputs, Te_new_values)
-            line_index = numpy.where((Te_table['Upper'] == transition[1]) & (Te_table['Lower'] == transition[0]))[0]
+            line_index = numpy.where((Te_table['Upper'] == which_transition[1]) & (Te_table['Lower'] == which_transition[0]))[0]
               
         Te_table = Te_table[line_index]
                        
@@ -864,7 +757,7 @@ def run_line_diagnostics(table, inputs, values, which_transition):
     #vary density and recalculate emissivities
     print("\nChanging density now.\n")
     if isinstance(dens, int) == True:
-        bins = numpy.geomspace(10e0, 10e16, num=3) #8
+        bins = numpy.geomspace(10e0, 10e16, num=8) #8
     elif isinstance(dens, list) == True:
         bins = numpy.geomspace(dens[0], dens[2], num=8)
 
@@ -915,9 +808,6 @@ def run_line_diagnostics(table, inputs, values, which_transition):
     pickle.dump(line_diagnostics, file)
     file.close()
 
-
-    print(numpy.column_stack((Te_eps_min, Te_eps_orig, Te_eps_max)))
-
     return line_diagnostics
 
 def wrapper_plot_line_diagnostics(inputs, line_diagnostics, line_diagnostics_2):
@@ -926,76 +816,64 @@ def wrapper_plot_line_diagnostics(inputs, line_diagnostics, line_diagnostics_2):
     
     temp_bins, dens_bins, Te_eps_orig, Te_eps_min, Te_eps_max, dens_eps_orig, \
             dens_eps_min, dens_eps_max, name, label, transition = [line_diagnostics.get(k) for k in line_diagnostics]
-    
-    temp = '%.E' % Decimal(Te) +'K'
-    percentage = '{0:g}'.format(delta_r*100)+'%'
-    density = 'dens='+str(dens)
+
     orig_text='{0:g}'.format(transition[0])+'->'+'{0:g}'.format(transition[1])
 
     #plot emissivity versus temperature
-    text = orig_text + ', ' + density
     axs2[0,0].tick_params(labelsize=12)
-    axs2[0,0].set_xlabel('Temperature in K', fontsize=14)
-    axs2[0,0].set_ylabel('Emissivity in \n$\mathit{ph}$ $cm^3$ $s^{-1}$ $bin^{-1}$', fontsize=14)
-    anchored_text = AnchoredText(text, loc='lower right', frameon=False)
-    axs[0,0].add_artist(anchored_text)
-    axs2[0,0].loglog(temp_bins, Te_eps_orig, label='Original emissivity')
-    axs2[0,0].legend()
+    axs2[0,0].set_xlabel('Temperature in K', fontsize=12)
+    axs2[0,0].set_ylabel('Emissivity in \n$\mathit{ph}$ $cm^3$ $s^{-1}$ $bin^{-1}$', fontsize=12)
+    anchored_text = AnchoredText(orig_text, loc='lower right', prop=dict(size=8), frameon=False)
+    axs2[0,0].add_artist(anchored_text)
+    axs2[0,0].loglog(temp_bins, Te_eps_orig, label='Original')
+    axs2[0,0].legend(fontsize='x-small')
     axs2[0,0].fill_between(temp_bins, Te_eps_min, Te_eps_max, alpha=0.5, color='g', \
-                     label="Range of emissivities")
-    axs2[0,0].legend()
-    #plt.savefig(name+'line_diagnostic_temp_range.pdf')
+                     label="Range")
+    axs2[0,0].legend(fontsize='x-small', loc='upper left')
     
     #plot emissivity versus density
-    text = orig_text + ', ' + temp
     axs2[0,1].tick_params(labelsize=12)
-    axs2[0,1].set_xlabel('Density in cm$^{-3}$', fontsize=14)
-    axs2[0,1].set_ylabel('Emissivity in \n$\mathit{ph}$ $cm^3$ $s^{-1}$ $bin^{-1}$', fontsize=14)
-    anchored_text = AnchoredText(text, loc='lower right', frameon=False)
+    axs2[0,1].set_xlabel('Density in cm$^{-3}$', fontsize=12)
+    axs2[0,1].set_ylabel('Emissivity in \n$\mathit{ph}$ $cm^3$ $s^{-1}$ $bin^{-1}$', fontsize=12)
+    anchored_text = AnchoredText(orig_text, loc='lower right', prop=dict(size=8), frameon=False)
     axs2[0,1].add_artist(anchored_text)
-    axs2[0,1].loglog(dens_bins, dens_eps_orig, label='Original emissivity')
-    axs2[0,1].legend()
-    #plt.savefig(name+'line_diagnostic_dens.pdf')
+    axs2[0,1].loglog(dens_bins, dens_eps_orig, label='Original')
+    axs2[0,1].legend(fontsize='x-small')
     axs2[0,1].fill_between(dens_bins, dens_eps_min, dens_eps_max, alpha=0.5, color='g', \
-                        label='Range of emissivities')
-    axs2[0,1].legend()
-    #plt.savefig(name+'line_diagnostic_dens_range.pdf')
+                        label='Range')
+    axs2[0,1].legend(fontsize='x-small', loc='upper left')
     
     #now redefine variables from line_diagnostics for transition_2
     #and plot on separate subplots
 
-    temp_bins, dens_bins, Te_eps_orig, Te_eps_min, Te_eps_max, dens_eps_orig, \
-            dens_eps_min, dens_eps_max, name, label, transition = [line_diagnostics_2.get(k) for k in line_diagnostics_2]
-    orig_text = '{0:g}'.format(transition[0]) + '->' + '{0:g}'.format(transition[1])
+    temp_bins_2, dens_bins_2, Te_eps_orig_2, Te_eps_min_2, Te_eps_max_2, dens_eps_orig_2, \
+            dens_eps_min_2, dens_eps_max_2, name_2, label_2, transition2 = [line_diagnostics_2.get(n) for n in line_diagnostics_2]
+    orig_text_2 = '{0:g}'.format(transition_2[0]) + '->' + '{0:g}'.format(transition_2[1])
 
     #plot emissivity versus temperature
-    text = orig_text + ', ' + density
     axs2[1,0].tick_params(labelsize=12)
-    axs2[1,0].set_xlabel('Temperature in K', fontsize=14)
-    axs2[1,0].set_ylabel('Emissivity in \n$\mathit{ph}$ $cm^3$ $s^{-1}$ $bin^{-1}$', fontsize=14)
-    anchored_text = AnchoredText(text, loc='lower right', frameon=False)
-    axs[1,0].add_artist(anchored_text)
-    axs2[1,0].loglog(temp_bins, Te_eps_orig, label='Original emissivity')
-    axs2[1,0].legend()
-    axs2[1,0].fill_between(temp_bins, Te_eps_min, Te_eps_max, alpha=0.5, color='g', \
-                     label="Range of emissivities")
-    axs[1,0].legend()
-    #plt.savefig(name+'line_diagnostic_temp_range.pdf')
+    axs2[1,0].set_xlabel('Temperature in K', fontsize=12)
+    axs2[1,0].set_ylabel('Emissivity in \n$\mathit{ph}$ $cm^3$ $s^{-1}$ $bin^{-1}$', fontsize=12)
+    anchored_text = AnchoredText(orig_text_2, loc='lower right', prop=dict(size=8), frameon=False)
+    axs2[1,0].add_artist(anchored_text)
+    axs2[1,0].loglog(temp_bins_2, Te_eps_orig_2, label='Original')
+    axs2[1,0].legend(fontsize='x-small')
+    axs2[1,0].fill_between(temp_bins_2, Te_eps_min_2, Te_eps_max_2, alpha=0.5, color='g', \
+                     label="Range")
+    axs2[1,0].legend(fontsize='x-small', loc='upper left')
     
     #plot emissivity versus density
-    text = orig_text + ', ' + temp
+    #text = orig_text + ', ' + temp
     axs2[1,1].tick_params(labelsize=12)
-    axs2[1,1].set_xlabel('Density in cm$^{-3}$', fontsize=14)
-    axs2[1,1].set_ylabel('Emissivity in \n$\mathit{ph}$ $cm^3$ $s^{-1}$ $bin^{-1}$', fontsize=14)
-    anchored_text = AnchoredText(text, loc='lower right', frameon=False)
-    axs[1,1].add_artist(anchored_text)
-    axs2[1,1].loglog(dens_bins, dens_eps_orig, label='Original emissivity')
-    axs2[1,1].legend()
-    #plt.savefig(name+'line_diagnostic_dens.pdf')
-    axs2[1,1].fill_between(dens_bins, dens_eps_min, dens_eps_max, alpha=0.5, color='g', \
-                        label='Range of emissivities')
-    axs2[1,1].legend()
-    #plt.savefig(name+'line_diagnostic_dens_range.pdf')
+    axs2[1,1].set_xlabel('Density in cm$^{-3}$', fontsize=12)
+    axs2[1,1].set_ylabel('Emissivity in \n$\mathit{ph}$ $cm^3$ $s^{-1}$ $bin^{-1}$', fontsize=12)
+    anchored_text = AnchoredText(orig_text_2, loc='lower right', prop=dict(size=8), frameon=False)
+    axs2[1,1].add_artist(anchored_text)
+    axs2[1,1].loglog(dens_bins_2, dens_eps_orig_2, label='Original')
+    axs2[1,1].legend(fontsize='x-small')
+    axs2[1,1].fill_between(dens_bins_2, dens_eps_min_2, dens_eps_max_2, alpha=0.5, color='g', \
+                        label='Range')
+    axs2[1,1].legend(fontsize='x-small', loc='upper left')
     
 def plot_line_diagnostics(inputs, line_diagnostics):
     
@@ -1016,38 +894,28 @@ def plot_line_diagnostics(inputs, line_diagnostics):
     temp_bins, dens_bins, Te_eps_orig, Te_eps_min, Te_eps_max, dens_eps_orig, \
             dens_eps_min, dens_eps_max, name, label, transition = [line_diagnostics.get(k) for k in line_diagnostics]
 
-    
     #plot emissivity versus temperature
-    #text = orig_text + ', ' + density
     axs[1,0].tick_params(labelsize=12)
     axs[1,0].set_xlabel('Temperature in K', fontsize=14)
     axs[1,0].set_ylabel('Emissivity in \n$\mathit{ph}$ $cm^3$ $s^{-1}$ $bin^{-1}$', fontsize=14)
-    #anchored_text = AnchoredText(text, loc='lower right', frameon=False)
-    #axs[1,0].add_artist(anchored_text)
-    axs[1,0].loglog(temp_bins, Te_eps_orig, label='Original emissivity')
-    axs[1,0].legend()
+    axs[1,0].loglog(temp_bins, Te_eps_orig, label='Original')
+    axs[1,0].legend(fontsize='x-small')
     axs[1,0].fill_between(temp_bins, Te_eps_min, Te_eps_max, alpha=0.5, color='g', \
-                     label="Range of emissivities")
-    axs[1,0].legend()
-    #plt.savefig(name+'line_diagnostic_temp_range.pdf')
+                     label="Range")
+    axs[1,0].legend(fontsize='x-small')
     
     #plot emissivity versus density
-    #text = orig_text + ', ' + temp
     axs[1,1].tick_params(labelsize=12)
     axs[1,1].set_xlabel('Density in cm$^{-3}$', fontsize=14)
     axs[1,1].set_ylabel('Emissivity in \n$\mathit{ph}$ $cm^3$ $s^{-1}$ $bin^{-1}$', fontsize=14)
-    #anchored_text = AnchoredText(text, loc='lower right', frameon=False)
-    #axs[1,1].add_artist(anchored_text)
-    axs[1,1].loglog(dens_bins, dens_eps_orig, label='Original emissivity')
-    axs[1,1].legend()
-    #plt.savefig(name+'line_diagnostic_dens.pdf')
+    axs[1,1].loglog(dens_bins, dens_eps_orig, label='Original')
+    axs[1,1].legend(fontsize='x-small')
     axs[1,1].fill_between(dens_bins, dens_eps_min, dens_eps_max, alpha=0.5, color='g', \
-                        label='Range of emissivities')
-    axs[1,1].legend()
-    #plt.savefig(name+'line_diagnostic_dens_range.pdf')
+                        label='Range')
+    axs[1,1].legend(fontsize='x-small')
     
     
-def wrapper_run_line_diagnostics(table1, inputs1, values1, table2, inputs2, values2):
+def run_line_ratio_diagnostics(line_diagnostics_1, line_diagnostics_2):
     
     """ Table1 and table2 are tables from individually run get_tables() on the two transitions
     specified by the user. Inputs1, values1, inputs2, values2, are  dictionaries holding the
@@ -1058,38 +926,22 @@ def wrapper_run_line_diagnostics(table1, inputs1, values1, table2, inputs2, valu
     Returns dictionary line_ratio_diagnostics containing arrays of the temperature and density bins
     for each transition, as well as the original, minimum, and maximum line ratios calculated
     from varying temperature and density independently."""
-    
-    Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-    npnts, show, wavelen, corrthresh, e_signif = [inputs1.get(k) for k in inputs1]
 
     line_ratio_diagnostics = {}
     
-    element = pyatomdb.atomic.Ztoelsymb(Z)
-    ion = pyatomdb.atomic.int_to_roman(z1)
-    line1=str(transition[0])+'-'+str(transition[1])
-    line2=str(transition_2[0])+'-'+str(transition_2[1])
-    line_ratio = line1+'-'+line2
-    name=element+'_'+ion+'_'+process+'_'+line_ratio
-    temp = '%.E' % Decimal(Te) +'K'
-    percentage = '{0:g}'.format(delta_r*100)+'%'
-    density = 'dens='+str(dens)
-    if process == 'A':
-        text= line_ratio + ' A value $\Delta$ $\pm$' + percentage 
-    elif process == 'exc':
-        text= line_ratio + ' Direct excitation rate $\Delta$ $\pm$' + percentage
-    
+    temp_bins1, dens_bins1, Te_eps_orig1, Te_eps_min1, Te_eps_max1, dens_eps_orig1, \
+        dens_eps_min1, dens_eps_max1, name1, label1, transition1 = [line_diagnostics_1.get(k) for k in line_diagnostics_1]
+    temp_bins2, dens_bins2, Te_eps_orig2, Te_eps_min2, Te_eps_max2, dens_eps_orig2, \
+        dens_eps_min2, dens_eps_max2, name2, label2, transition2 = [line_diagnostics_2.get(k) for k in line_diagnostics_2]
+
+    line1=str(transition1[0])+'-'+str(transition1[1])
+    line2=str(transition2[0])+'-'+str(transition2[1])
+    line_ratio = line1+'_'+line2
+
     print("////////////////////////////////////////////////////////////////")
     print("Running diagnostics for line ratio", line_ratio)
     print("////////////////////////////////////////////////////////////////")
-    
-    line_diagnostics1 = run_line_diagnostics(table1, inputs1, values1, transition)
-    line_diagnostics2 = run_line_diagnostics(table2, inputs2, values2, transition_2)
-    
-    temp_bins1, dens_bins1, Te_eps_orig1, Te_eps_min1, Te_eps_max1, dens_eps_orig1, \
-        dens_eps_min1, dens_eps_max1, name1, label1, transition1 = [line_diagnostics1.get(k) for k in line_diagnostics1]
-    temp_bins2, dens_bins2, Te_eps_orig2, Te_eps_min2, Te_eps_max2, dens_eps_orig2, \
-        dens_eps_min2, dens_eps_max2, name2, label2, transition2 = [line_diagnostics2.get(k) for k in line_diagnostics2]
-    
+
     Te_line_ratios = [x/y for x,y in zip(Te_eps_orig1, Te_eps_orig2)]
     Te_line_ratios_min = [x/y for x,y in zip(Te_eps_min1, Te_eps_max2)]
     Te_line_ratios_max = [x/y for x,y in zip(Te_eps_max1, Te_eps_min2)]
@@ -1107,7 +959,7 @@ def wrapper_run_line_diagnostics(table1, inputs1, values1, table2, inputs2, valu
                                  'dens_line_ratios': numpy.asarray(dens_line_ratios), \
                                  'dens_line_ratios_min': numpy.asarray(dens_line_ratios_min), \
                                  'dens_line_ratios_max': numpy.asarray(dens_line_ratios_max), \
-                                   'ratio': line_ratio, 'name': name, 'label': label1})
+                                   'ratio': line_ratio, 'name': name1, 'label': label1})
         
         
     file = open('line_ratio_diagnostics', 'wb')
@@ -1118,7 +970,7 @@ def wrapper_run_line_diagnostics(table1, inputs1, values1, table2, inputs2, valu
     
 def plot_line_ratio_diagnostics(inputs, line_ratio_diagnostics):
     
-    """ Line_ratio_diagnostics is a dictionary from wrapper_run_line_diagnostics() containing
+    """ Line_ratio_diagnostics is a dictionary from run_line_ratio_diagnostics() containing
     arrays of temperature and density bins, and line ratios (original, min, max) calculated
     from varying temperature and density.
     
@@ -1136,54 +988,120 @@ def plot_line_ratio_diagnostics(inputs, line_ratio_diagnostics):
                Te_line_ratios_max, dens_line_ratios, dens_line_ratios_min, \
                dens_line_ratios_max, ratio, name, label = \
                [line_ratio_diagnostics.get(k) for k in line_ratio_diagnostics]
+
     temp = '%.E' % Decimal(Te) + 'K'
     percentage = '{0:g}'.format(delta_r * 100) + '%'
     density = 'dens=' + str(dens)
 
     text = '{0:g}'.format(transition[0]) + '->' + '{0:g}'.format(transition[1]) + \
         ' / ' + '{0:g}'.format(transition_2[0]) + '->' + '{0:g}'.format(transition_2[1])
-    # elif process == 'exc':
-    #     orig_text = '{0:g}'.format(transition[0]) + '->' + '{0:g}'.format(transition[1]) + \
-    #                 ' Direct excitation rate $\Delta$ $\pm$' + percentage
 
     #plot emissivity versus temperature
     #text = orig_text + ', ' + density
     axs2[2,0].tick_params(labelsize=12)
-    axs2[2,0].set_xlabel('Temperature in K', fontsize=14)
-    axs2[2,0].set_ylabel('Line Ratio', fontsize=14)
-    anchored_text = AnchoredText(text, loc='lower right', frameon=False)
-    axs2[2,0].add_artist(anchored_text)
-    axs2[2,0].semilogx(temp_bins1, Te_line_ratios, label='Original line ratio')
+    axs2[2,0].set_xlabel('Temperature in K', fontsize=12)
+    axs2[2,0].set_ylabel('Line Ratio\n'+text, fontsize=12)
+    #anchored_text = AnchoredText(text, loc='lower right', frameon=False)
+    #axs2[2,0].add_artist(anchored_text)
+    axs2[2,0].semilogx(temp_bins1, Te_line_ratios, label='Original')
     plt.tight_layout()
-    plt.legend()
     #plt.savefig(name+'line_diagnostic_temp.pdf')
     axs2[2,0].fill_between(temp_bins1, Te_line_ratios_min, Te_line_ratios_max, alpha=0.5, color='g', \
-                     label="Range of line ratios")
-    axs2[2,0].legend()
+                     label="Range")
+    axs2[2,0].legend(fontsize='x-small')
     #plt.savefig(name+'line_diagnostic_temp_range.pdf')
     #plt.show()
     
     #plot emissivity versus density
     #text = orig_text + ', ' + temp
     axs2[2,1].tick_params(labelsize=12)
-    axs2[2,1].set_xlabel('Density in cm$^{-3}$', fontsize=14)
-    axs2[2,1].set_ylabel('Line Ratio', fontsize=14)
-    anchored_text = AnchoredText(text, loc='lower right', frameon=False)
-    axs2[2,1].add_artist(anchored_text)
-    axs2[2,1].semilogx(dens_bins1, dens_line_ratios, label='Original emissivity')
-    axs2[2,1].legend()
+    axs2[2,1].set_xlabel('Density in cm$^{-3}$', fontsize=12)
+    axs2[2,1].set_ylabel('Line Ratio\n'+text, fontsize=12)
+    #anchored_text = AnchoredText(text, loc='lower right', frameon=False)
+    #axs2[2,1].add_artist(anchored_text)
+    axs2[2,1].semilogx(dens_bins1, dens_line_ratios, label='Original')
+    axs2[2,1].legend(fontsize='x-small')
     #plt.savefig(name+'line_diagnostic_dens.pdf')
-    axs2[2,1].fill_between(dens_bins1, dens_line_ratios_min, dens_line_ratios_max, alpha=0.5, color='g', label='Range of line ratios')
-    axs2[2,1].legend()
+    axs2[2,1].fill_between(dens_bins1, dens_line_ratios_min, dens_line_ratios_max, alpha=0.5, color='g', label='Range')
+    axs2[2,1].legend(fontsize='x-small')
     #plt.savefig(name+'line_diagnostic_dens_range.pdf')
     #plt.show()
 
 def wrapper_check_sensitivity(transition_list):
+    """
+    Runs entire check_sensitivity() routine on a list [] of transitions
+
+    :param transition_list:
+    :return:
+    """
+
     for transition in transition_list:
         print("Checking sensitivity for transition", transition)
         check_sensitivity(Z, z1, Te, dens, process, delta_r, \
             transition, transition_2, npnts, show, wavelen, corrthresh, e_signif)
-        
+
+def plot_multiple_sensitivity(Z, z1, Te, dens, delta_r, A_lines, exc_lines, wavelen=(10,20), corrthresh=10e-5):
+
+    """ Plots sensitive epsilons for multiple transitions all on one plot.
+    A_lines and exc_ lines are dictionaries of ('name': (initial, final)) """
+
+    set_lines = [A_lines, exc_lines]
+    processes = ['A', 'exc']
+
+    for set, process in zip(set_lines, processes):
+        plt.figure()
+        plt.xlabel('Wavelength ($\AA$)', fontsize=14)
+        plt.ylabel('% Emissivity Change', fontsize=14)
+        plt.tick_params(labelsize=12)
+        temp = '%.E' % Decimal(Te) + 'K'
+        percentage = '{0:g}'.format(delta_r * 100) + '%'
+        density = 'dens=' + str(dens)
+        element = pyatomdb.atomic.Ztoelsymb(Z)
+        ion = pyatomdb.atomic.int_to_roman(z1)
+        if process == 'A':
+            text = element + ' ' + ion + ' ' + ', ' + temp + ', ' + density + '\n' + \
+                   ' A value $\Delta$ $\pm$' + percentage
+        elif process == 'exc':
+            text = element + ' ' + ion + ' ' + ', ' + temp + ', ' + density + '\n' + \
+                   ' Direct excitation rate $\Delta$ $\pm$' + percentage
+
+        plt.title(text, fontsize=16)
+
+        for k in set:
+            transition = set.get(k)
+
+            inputs, values, transition = set_up(Z, z1, Te, dens, process, delta_r, \
+                                                             transition, transition_2=None, npnts=2, show=None, \
+                                                             wavelen=wavelen, corrthresh=corrthresh, e_signif=None)
+            if process == 'A':
+                new_inputs, new_values = vary_a(inputs, values, transition)
+            elif process == 'exc':
+                new_inputs, new_values = vary_exc(inputs, values, transition)
+            table, new_table, inputs, results = get_tables(new_inputs, new_values)
+
+            # filter data for significance
+            cutoff_data = new_table[new_table['|dE/dE_orig|'] >= corrthresh]
+            cutoff_data = cutoff_data[(wavelen[0] < cutoff_data['Lambda'])]
+            cutoff_data = cutoff_data[cutoff_data['Lambda'] < wavelen[1]]
+
+            # plot wavelength vs. % emissivity change
+            plt.semilogy(cutoff_data['Lambda'], cutoff_data['|dE/dE_orig|'], linestyle='', marker='o',
+                         label=k)
+
+            # label each point w/ transition
+            transition_labels = []
+            for x in cutoff_data:
+                if process == 'A':
+                    transition_name = '{0:g}'.format(x['Upper']) + '->' + '{0:g}'.format(x['Lower'])
+                if process == 'exc':
+                    transition_name = '{0:g}'.format(x['Lower']) + '->' + '{0:g}'.format(x['Upper'])
+                transition_labels.append(transition_name)
+            for (x, y, label) in zip(numpy.array(cutoff_data['Lambda']), numpy.array(cutoff_data['|dE/dE_orig|']),
+                                     transition_labels):
+                plt.annotate(label, xy=(x, y))
+
+        plt.tight_layout()
+        plt.legend(fontsize='x-small')
         
 def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_2=None, \
             npnts=None, show=True, wavelen=(10,20), corrthresh=10e-5, e_signif=0.0):
@@ -1199,8 +1117,8 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
     z1 : int
     ion charge +1
     
-    te : float
-    temperture (Kelvin)
+    Te : float
+    temperature (Kelvin)
     
     dens : float
     electron density (cm^-3)
@@ -1219,7 +1137,7 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
     if a second transition is provided, give line ratio diagnostics
     
     npnts : int
-    number of points to calculate emissivity for
+    number of points to calculate emissivity for. default is 2
 
     show : boolean
     will show plots if set to True (Default)
@@ -1230,6 +1148,7 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
     
     corrthresh : float
     the minimum desired correlation threshold for epsilon, dE/dE_orig
+    default is 10e-5
     
     e_signif : float
     the minimum value of the partial derivative of epsilon to rate
@@ -1289,51 +1208,65 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
                         ' Direct excitation rate $\Delta$ $\pm$' + percentage
 
         fig.suptitle(text, fontsize=16)
-        plt.subplots_adjust(top=0.86)
         plot_nei(inputs)
         plot_sensitivity(inputs, new_table)
         plot_line_diagnostics(inputs, line_diagnostics)
+        fig.tight_layout()
+        fig.subplots_adjust(top=0.86)
         
         #file = open('results_'+process, 'wb')
         #pickle.dump([results, line_diagnostics], file)
         #file.close()
-        plt.tight_layout()
-        numbers = range(20)
-        #percentage = '{0:g}'.format(delta_r * 100) + '%'
-        #element = pyatomdb.atomic.Ztoelsymb(Z)
-        #ion = pyatomdb.atomic.int_to_roman(z1)
-        file_name = element+'_'+ion+'_'+process+'_'+percentage+'_'
+
+        numbers = range(50)
+        file_name = element+'_'+ion+'_'+process+'_'
         for i in range(len(numbers)):
             if Path(file_name+str(i)).is_file():
                 i = i+1
             else:
-                plt.savefig(file_name+str(i))
+                fig.savefig('file_name+str(i)'+'.pdf')
+
+        # print sensitivity table
+        if process == 'exc':
+            print("\nFor", element, ion + ", changed inputs:", "excitation rate from level", \
+                  str(transition[0]) + "->" + str(transition[1]), percentage)
+            print("Lines affected at Te=" + str(Te) + ", dens=" + str(dens))
+            print(new_table)
+        if process =='A':
+            print("\nFor", element, ion + ", changed inputs:", "A value for level", \
+                  str(transition[0]) + "->" + str(transition[1]), percentage)
+            print("Lines affected at Te=" + str(Te) + ", dens=" + str(dens))
+            print(new_table)
 
         plt.show()
 
-    elif transition_2 != None:  #calculate diagnostics for a line ratio 
+    elif transition_2 != None:  #calculate diagnostics for a line ratio
+        which_transition = transition
         inputs, values, transition = set_up(Z, z1, Te, dens, process, delta_r, \
-                transition, transition_2, npnts, show, wavelen, corrthresh, e_signif)
-
-        inputs_2, values_2, transition_2 = set_up(Z, z1, Te, dens, process, delta_r, \
-                transition, transition_2, npnts, show, wavelen, corrthresh, e_signif)
-        
+                which_transition, transition_2, npnts, show, wavelen, corrthresh, e_signif)
         if process == 'A':
-            new_inputs, new_values = vary_a(inputs, values, transition)
-            new_inputs_2, new_values_2, = vary_a(inputs_2, values_2, transition_2)
+            new_inputs, new_values = vary_a(inputs, values, which_transition)
         elif process == 'exc':
-            new_inputs, new_values = vary_exc(inputs, values, transition)
-            new_inputs_2, new_values_2, = vary_exc(inputs_2, values_2, transition_2)
+            new_inputs, new_values = vary_exc(inputs, values, which_transition)
+
+        which_transition = transition_2
+        transition_2 = None
+        inputs_2, values_2, transition_2 = set_up(Z, z1, Te, dens, process, delta_r, \
+                which_transition, transition_2, npnts, show, wavelen, corrthresh, e_signif)
+        if process == 'A':
+            new_inputs_2, new_values_2, = vary_a(inputs_2, values_2, which_transition)
+        elif process == 'exc':
+            new_inputs_2, new_values_2, = vary_exc(inputs_2, values_2, which_transition)
 
         table1, new_table1, inputs1, results1 = get_tables(new_inputs, new_values)
         table2, new_table2, inputs2, results2 = get_tables(new_inputs_2, new_values_2)
-        
+
         #run line diagnostics for individual transitions
         line_diagnostics_1 = run_line_diagnostics(table1, inputs, values, transition)
         line_diagnostics_2 = run_line_diagnostics(table2, inputs_2, values_2, transition_2)
         
         #run line ratio diagnostics
-        line_ratio_diagnostics = wrapper_run_line_diagnostics(table1, inputs, values, table2, inputs_2, values_2)
+        line_ratio_diagnostics = run_line_ratio_diagnostics(line_diagnostics_1, line_diagnostics_2)
 
         #set up first page of plots
         fig, axs = plt.subplots(2,2, figsize=(10,6))
@@ -1349,33 +1282,82 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
             text = element + ' ' + ion + ' ' + ', ' + temp + ', ' + density + '\n' + \
                    ' Direct excitation rate $\Delta$ $\pm$' + percentage
 
-        fig.suptitle(text, fontsize=16)
-        plt.subplots_adjust(top=0.86)
 
         #plot nei line emissitivities individually
         wrapper_plot_nei(inputs)
         #plot sensitivity for both transitions individually
         wrapper_plot_sensitivity(inputs, new_table1, new_table2)
 
+        fig.suptitle(text, fontsize=16)
+        fig.tight_layout()
+        fig.subplots_adjust(top=0.86)
+
+        #save first plot
+        numbers = range(50)
+        file_name = element + '_' + ion + '_' + process + '_' + \
+                    str(transition[0]) + '-' + str(transition[1]) + '_' + \
+                    str(transition_2[0]) + '-' + str(transition_2[1]) + 'sensitivity' + '_'
+        for i in range(len(numbers)):
+            if Path(file_name + str(i)).is_file():
+                i = i + 1
+            else:
+                fig.savefig('file_name+str(i)' + '.pdf')
+
         #set up second page of plots
         global fig2
         global axs2
         fig2, axs2 = plt.subplots(3,2, figsize=(10,6))
         fig2.suptitle(text, fontsize=16)
-        plt.subplots_adjust(top=0.86)
 
-        #plot line diagnostics individually
+        #plot line diagnostics for each transition individually
         wrapper_plot_line_diagnostics(inputs, line_diagnostics_1, line_diagnostics_2)
-        #plot line ratio diagnostics
+        #now plot line ratio diagnostics
         plot_line_ratio_diagnostics(inputs, line_ratio_diagnostics)
         
-        file = open('results_'+process, 'wb')
-        pickle.dump([results1, results2, line_ratio_diagnostics], file)
-        file.close()
-        
-        plt.tight_layout()
+        # file = open('results_'+process, 'wb')
+        # pickle.dump([results1, results2, line_ratio_diagnostics], file)
+        # file.close()
+
+        fig2.tight_layout()
+        fig2.subplots_adjust(top=0.84, wspace=0.54, hspace=0.59)
+
+        #save second plot
+        numbers = range(50)
+        file_name = element + '_' + ion + '_' + process + '_' + \
+            str(transition[0]) + '-' + str(transition[1]) + '_' +\
+            str(transition_2[0]) + '-' + str(transition_2[1]) + 'diagnostics' + '_'
+        for i in range(len(numbers)):
+            if Path(file_name + str(i)).is_file():
+                i = i + 1
+            else:
+                fig2.savefig('file_name+str(i)' + '.pdf')
+
+        #print sensitivity tables
+        if process == 'exc':
+            print("\nFor", element, ion + ", changed inputs:", "excitation rate from level", \
+              str(transition[0]) + "->" + str(transition[1]), "+/-", percentage)
+            print("Lines affected at Te=" + str(Te) + ", dens=" + str(dens))
+            print(new_table1)
+        if process == 'A':
+            print("\nFor", element, ion + ", changed inputs:", "A value for level", \
+                  str(transition[0]) + "->" + str(transition[1]), "+/-", percentage)
+            print("Lines affected at Te=" + str(Te) + ", dens=" + str(dens))
+            print(new_table1)
+
+        if process == 'exc':
+            print("\nFor", element, ion + ", changed inputs:", "excitation rate from level", \
+              str(transition_2[0]) + "->" + str(transition_2[1]), "+/-", percentage)
+            print("Lines affected at Te=" + str(Te) + ", dens=" + str(dens))
+            print(new_table1)
+        if process == 'A':
+            print("\nFor", element, ion + ", changed inputs:", "A value for level", \
+                  str(transition_2[0]) + "->" + str(transition_2[1]), "+/-", percentage)
+            print("Lines affected at Te="+str(Te) + ", dens="+str(dens))
+            print(new_table2)
+
         plt.show()
-        
+
+        return line_diagnostics_1, line_diagnostics_2, line_ratio_diagnostics
+
     elif show == True:
         plt.show()
-             

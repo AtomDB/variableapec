@@ -97,7 +97,7 @@ def recombine(Z, z1, Te, dens, la_matrix, in_range, pop_fraction):
     return recomb_linelist['epsilon']
 
 def set_up(Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-           npnts, show, wavelen, corrthresh, e_signif):
+           npnts, wavelen, Te_range, dens_range, corrthresh, e_signif):
     
     """ Uses inputs from check_sensitivity(), see routine for variable definitions as they are same throughout.
     
@@ -182,7 +182,8 @@ def set_up(Z, z1, Te, dens, process, delta_r, transition, transition_2, \
     inputs = {}
     inputs.update( {'Z': Z, 'z1': z1, 'Te': Te, 'dens': dens, 'process': process, 'delta_r': delta_r, \
                     'transition': transition, 'transition_2': transition_2, \
-                    'npnts': npnts, 'show': show, 'wavelen': wavelen, 'corrthresh': corrthresh, 'e_signif': e_signif} )
+                    'npnts': npnts, 'wavelen': wavelen, 'Te_range': Te_range, 'dens_range': dens_range,\
+                    'corrthresh': corrthresh, 'e_signif': e_signif} )
     values = {}
     values.update( {'matrix': matrix, 'B': B, 'in_range': in_range, 'linelist': linelist, 'table': table, 'new_table': new_table} )
     return inputs, values, transition
@@ -199,7 +200,7 @@ def vary_a(inputs, values, transition):
     Returns the dictionaries input and values."""
     
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-    npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
+    npnts, wavelen, Te_range, dens_range, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
     matrix, B, in_range, linelist, table, new_table = [values.get(k) for k in values]
     
@@ -307,7 +308,7 @@ def vary_exc(inputs, values, which_transition):
     Returns the dictionaries input and values."""
     
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-    npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
+    npnts, wavelen, Te_range, dens_range, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
     matrix, B, in_range, linelist, table, new_table = [values.get(k) for k in values]
     
@@ -416,7 +417,7 @@ def get_tables(inputs, values):
     Returns table and new_table and the dictionaries inputs and results."""
     
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-    npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
+    npnts, wavelen, Te_range, dens_range, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
     table, new_table, new_linelist, q_max, q_min = [values.get(k) for k in values]
 
@@ -471,7 +472,7 @@ def plot_nei(inputs):
     is a dictionary outputted by set_up()."""
     
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-    npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
+    npnts, wavelen, Te_range, dens_range, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
     #get nei line emissivities and plot
     if process == 'A':
@@ -509,7 +510,7 @@ def plot_nei(inputs):
 def wrapper_plot_nei(inputs):   #get nei line emissivities and plot
     
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-    npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
+    npnts, wavelen, Te_range, dens_range, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
     if process == 'A':
         emiss = pyatomdb.spectrum.get_nei_line_emissivity(Z, z1, transition[0], transition[1])
@@ -585,7 +586,7 @@ def plot_sensitivity(inputs, new_table):
     Currently plotting for wavelengths between 10-20 Angstroms (as set by mask1 and mask2 below).""" 
     
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-    npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
+    npnts, wavelen, Te_range, dens_range, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
     element = pyatomdb.atomic.Ztoelsymb(Z)
     ion = pyatomdb.atomic.int_to_roman(z1)
@@ -629,7 +630,7 @@ def wrapper_plot_sensitivity(inputs, new_table1, new_table2):
 
     #plot sensitive epsilons for first transition
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-    npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
+    npnts, wavelen, Te_range, dens_range, corrthresh, e_signif = [inputs.get(k) for k in inputs]
 
     axs[1, 0].set_xlabel('Wavelength ($\AA$)', fontsize=12)
     axs[1, 0].set_ylabel('% Emissivity Change', fontsize=12)
@@ -659,7 +660,7 @@ def wrapper_plot_sensitivity(inputs, new_table1, new_table2):
 
     #now plot sensitive epsilons for second transition
     # Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-    # npnts, show, wavelen, corrthresh, e_signif = [inputs_2.get(n) for n in inputs_2]
+    # npnts, wavelen, Te_range, dens_range, corrthresh, e_signif = [inputs_2.get(n) for n in inputs_2]
 
     axs[1, 1].set_xlabel('Wavelength ($\AA$)', fontsize=12)
     axs[1, 1].set_ylabel('% Emissivity Change', fontsize=12)
@@ -701,7 +702,7 @@ def run_line_diagnostics(table, inputs, values, which_transition):
     
     #read in inputs and values from set_up()
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-    npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
+    npnts, wavelen, Te_range, dens_range, corrthresh, e_signif = [inputs.get(k) for k in inputs]
 
     print("////////////////////////////////////////////////////////////////")
     print("Now running line diagnostics for transition:", which_transition)
@@ -723,10 +724,11 @@ def run_line_diagnostics(table, inputs, values, which_transition):
     
     #vary temperature and recalculate emissivities 
     print("\nChanging temperature now.\n")
-    if isinstance(Te, list) != True:
-        t_bins = numpy.geomspace(Te/10, Te*10, num=20) #20
-    elif isinstance(Te, list) == True:
-        t_bins = numpy.geomspace(Te[0], Te[2], num=20)
+    # if isinstance(Te, list) != True:
+    #     t_bins = numpy.geomspace(Te/10, Te*10, num=20) #20
+    # elif isinstance(Te, list) == True:
+    #     t_bins = numpy.geomspace(Te[0], Te[2], num=20)
+    t_bins = numpy.geomspace(Te_range[0], Te_range[1], num=20)
 
     temp_bins=[]
     for x in t_bins:
@@ -738,7 +740,7 @@ def run_line_diagnostics(table, inputs, values, which_transition):
     for temp_Te in temp_bins:
         print("Temperature is:", temp_Te)
         Te_inputs, Te_values, transition = set_up(Z, z1, temp_Te, dens, process, delta_r, which_transition, transition_2, \
-           npnts, show, wavelen, corrthresh, e_signif)
+           npnts, wavelen, Te_range, dens_range, corrthresh, e_signif)
         if process == 'A':
             Te_new_inputs, Te_new_values = vary_a(Te_inputs, Te_values, which_transition)
             Te_table, Te_new_table, Te_inputs, Te_results = get_tables(Te_new_inputs, Te_new_values)
@@ -756,23 +758,23 @@ def run_line_diagnostics(table, inputs, values, which_transition):
     
     #vary density and recalculate emissivities
     print("\nChanging density now.\n")
-    if isinstance(dens, int) == True:
-        bins = numpy.geomspace(10e0, 10e16, num=8) #8
-    elif isinstance(dens, list) == True:
-        bins = numpy.geomspace(dens[0], dens[2], num=8)
+    # if isinstance(dens, int) == True:
+    #     bins = numpy.geomspace(10e0, 10e16, num=8) #8
+    # elif isinstance(dens, list) == True:
+    #     bins = numpy.geomspace(dens[0], dens[2], num=8)
+    bins = numpy.geomspace(dens_range[0], dens_range[1], num=8)
 
     dens_bins=[]
     for x in bins:
         dens_bins.append(x)
-        
-    
+
     dens_eps_orig=[]
     dens_eps_min=[]
     dens_eps_max=[]
     for temp_dens in dens_bins:
         print("Density is:", temp_dens)
         dens_inputs, dens_values, transition = set_up(Z, z1, Te, temp_dens, process, delta_r, which_transition, transition_2, \
-           npnts, show, wavelen, corrthresh, e_signif)
+           npnts, wavelen, Te_range, dens_range, corrthresh, e_signif)
         if process == 'A':
             dens_new_inputs, dens_new_values = vary_a(dens_inputs, dens_values, which_transition)
             dens_table, dens_new_table, dens_inputs, dens_results = get_tables(dens_new_inputs, dens_new_values)
@@ -812,7 +814,7 @@ def run_line_diagnostics(table, inputs, values, which_transition):
 
 def wrapper_plot_line_diagnostics(inputs, line_diagnostics, line_diagnostics_2):
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-    npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
+    npnts, wavelen, Te_range, dens_range, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
     temp_bins, dens_bins, Te_eps_orig, Te_eps_min, Te_eps_max, dens_eps_orig, \
             dens_eps_min, dens_eps_max, name, label, transition = [line_diagnostics.get(k) for k in line_diagnostics]
@@ -885,7 +887,7 @@ def plot_line_diagnostics(inputs, line_diagnostics):
     Plots emissivity as a function of temperature and density for the specified single transition."""
 
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-    npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
+    npnts, wavelen, Te_range, dens_range, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
     file = open('line_diagnostics', 'rb')
     line_diagnostics = pickle.load(file)
@@ -978,7 +980,7 @@ def plot_line_ratio_diagnostics(inputs, line_ratio_diagnostics):
     temperature and density."""
 
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-    npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
+    npnts, wavelen, Te_range, dens_range, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
     #file = open('line_ratio_diagnostics', 'rb')
     #line_ratio_diagnostics = pickle.load(file)
@@ -989,43 +991,27 @@ def plot_line_ratio_diagnostics(inputs, line_ratio_diagnostics):
                dens_line_ratios_max, ratio, name, label = \
                [line_ratio_diagnostics.get(k) for k in line_ratio_diagnostics]
 
-    temp = '%.E' % Decimal(Te) + 'K'
-    percentage = '{0:g}'.format(delta_r * 100) + '%'
-    density = 'dens=' + str(dens)
-
     text = '{0:g}'.format(transition[0]) + '->' + '{0:g}'.format(transition[1]) + \
         ' / ' + '{0:g}'.format(transition_2[0]) + '->' + '{0:g}'.format(transition_2[1])
 
     #plot emissivity versus temperature
-    #text = orig_text + ', ' + density
     axs2[2,0].tick_params(labelsize=12)
     axs2[2,0].set_xlabel('Temperature in K', fontsize=12)
     axs2[2,0].set_ylabel('Line Ratio\n'+text, fontsize=12)
-    #anchored_text = AnchoredText(text, loc='lower right', frameon=False)
-    #axs2[2,0].add_artist(anchored_text)
     axs2[2,0].semilogx(temp_bins1, Te_line_ratios, label='Original')
     plt.tight_layout()
-    #plt.savefig(name+'line_diagnostic_temp.pdf')
     axs2[2,0].fill_between(temp_bins1, Te_line_ratios_min, Te_line_ratios_max, alpha=0.5, color='g', \
                      label="Range")
     axs2[2,0].legend(fontsize='x-small')
-    #plt.savefig(name+'line_diagnostic_temp_range.pdf')
-    #plt.show()
     
     #plot emissivity versus density
-    #text = orig_text + ', ' + temp
     axs2[2,1].tick_params(labelsize=12)
     axs2[2,1].set_xlabel('Density in cm$^{-3}$', fontsize=12)
     axs2[2,1].set_ylabel('Line Ratio\n'+text, fontsize=12)
-    #anchored_text = AnchoredText(text, loc='lower right', frameon=False)
-    #axs2[2,1].add_artist(anchored_text)
     axs2[2,1].semilogx(dens_bins1, dens_line_ratios, label='Original')
     axs2[2,1].legend(fontsize='x-small')
-    #plt.savefig(name+'line_diagnostic_dens.pdf')
     axs2[2,1].fill_between(dens_bins1, dens_line_ratios_min, dens_line_ratios_max, alpha=0.5, color='g', label='Range')
     axs2[2,1].legend(fontsize='x-small')
-    #plt.savefig(name+'line_diagnostic_dens_range.pdf')
-    #plt.show()
 
 def wrapper_check_sensitivity(transition_list):
     """
@@ -1038,7 +1024,7 @@ def wrapper_check_sensitivity(transition_list):
     for transition in transition_list:
         print("Checking sensitivity for transition", transition)
         check_sensitivity(Z, z1, Te, dens, process, delta_r, \
-            transition, transition_2, npnts, show, wavelen, corrthresh, e_signif)
+            transition, transition_2, npnts, wavelen, corrthresh, e_signif)
 
 def plot_multiple_sensitivity(Z, z1, Te, dens, delta_r, A_lines, exc_lines, wavelen=(10,20), corrthresh=10e-5):
 
@@ -1071,7 +1057,7 @@ def plot_multiple_sensitivity(Z, z1, Te, dens, delta_r, A_lines, exc_lines, wave
             transition = set.get(k)
 
             inputs, values, transition = set_up(Z, z1, Te, dens, process, delta_r, \
-                                                             transition, transition_2=None, npnts=2, show=None, \
+                                                             transition, transition_2=None, npnts=2, \
                                                              wavelen=wavelen, corrthresh=corrthresh, e_signif=None)
             if process == 'A':
                 new_inputs, new_values = vary_a(inputs, values, transition)
@@ -1104,7 +1090,7 @@ def plot_multiple_sensitivity(Z, z1, Te, dens, delta_r, A_lines, exc_lines, wave
         plt.legend(fontsize='x-small')
         
 def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_2=None, \
-            npnts=None, show=True, wavelen=(10,20), corrthresh=10e-5, e_signif=0.0):
+            npnts=None, wavelen=(10,20), Te_range=(Te/10, Te*10), dens_range=(10e0, 10e16), corrthresh=10e-5, e_signif=0.0):
 
     """
     Check emissivity sensitivity for specified element, ion, and transition.
@@ -1131,20 +1117,25 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
     
     transition : tuple
     (upper, lower) transition to vary
-        i.e. to vary 5->4 A value, transition = (5,4)
+    i.e. to vary 5->4 A value, transition = (5,4)
         
     transition_2 : tuple
-    if a second transition is provided, give line ratio diagnostics
+    if a second transition is provided, will run line ratio diagnostics
     
     npnts : int
     number of points to calculate emissivity for. default is 2
 
-    show : boolean
-    will show plots if set to True (Default)
-    
     wavelen : tuple
-    range of wavelengths to plot sensitive lines over
-    (default is 10-20 Angstroms)
+    range of wavelengths to plot sensitive lines over in Angstroms
+    default is (10-20)
+
+    Te_range : tuple
+    range of temperatures to run line diagnostics on
+    default is (Te/10, Te*10)
+
+    dens_range : tuple
+    range of densities to run line diagnostics on
+    default is (10e0, 10e16)
     
     corrthresh : float
     the minimum desired correlation threshold for epsilon, dE/dE_orig
@@ -1163,14 +1154,13 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
     
     print("Z="+str(Z), "z1="+str(z1), "Te="+str(Te), "dens="+str(dens), "process="+str(process), \
           "delta_r="+str(delta_r), "transition="+str(transition), "transition2="+str(transition_2), \
-          "npnts="+str(npnts), "show="+str(show), "wavelength range="+str(wavelen), "correlation threshold="+str(corrthresh), "epsilon significance="+str(e_signif))
+          "npnts="+str(npnts), "wavelength range="+str(wavelen), "temp range="+str(Te_range), \
+          "dens range="+str(dens_range), "correlation threshold="+str(corrthresh), "epsilon significance="+str(e_signif))
     
     if npnts is None:
         npnts = 2
     elif transition_2 is None:
         transition_2 = []
-    elif show is None:
-        show = True
     elif corrthresh is None:
         corrthresh = 10e-5
     elif e_signif is None:
@@ -1180,7 +1170,7 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
         
     if transition_2 is None:    #check sensitivity for a single transition
         inputs, values, transition = set_up(Z, z1, Te, dens, process, delta_r, \
-                transition, transition_2, npnts, show, wavelen, corrthresh, e_signif)
+                transition, transition_2, npnts, wavelen, Te_range, dens_range, corrthresh, e_signif)
         if process == 'A':
             new_inputs, new_values = vary_a(inputs, values, transition)
         elif process == 'exc':
@@ -1224,7 +1214,7 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
             if Path(file_name+str(i)).is_file():
                 i = i+1
             else:
-                fig.savefig('file_name+str(i)'+'.pdf')
+                fig.savefig(file_name+str(i)+'.pdf')
 
         # print sensitivity table
         if process == 'exc':
@@ -1243,7 +1233,7 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
     elif transition_2 != None:  #calculate diagnostics for a line ratio
         which_transition = transition
         inputs, values, transition = set_up(Z, z1, Te, dens, process, delta_r, \
-                which_transition, transition_2, npnts, show, wavelen, corrthresh, e_signif)
+                which_transition, transition_2, npnts, wavelen, Te_range, dens_range, corrthresh, e_signif)
         if process == 'A':
             new_inputs, new_values = vary_a(inputs, values, which_transition)
         elif process == 'exc':
@@ -1252,7 +1242,7 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
         which_transition = transition_2
         transition_2 = None
         inputs_2, values_2, transition_2 = set_up(Z, z1, Te, dens, process, delta_r, \
-                which_transition, transition_2, npnts, show, wavelen, corrthresh, e_signif)
+                which_transition, transition_2, npnts, wavelen, Te_range, dens_range, corrthresh, e_signif)
         if process == 'A':
             new_inputs_2, new_values_2, = vary_a(inputs_2, values_2, which_transition)
         elif process == 'exc':
@@ -1301,7 +1291,7 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
             if Path(file_name + str(i)).is_file():
                 i = i + 1
             else:
-                fig.savefig('file_name+str(i)' + '.pdf')
+                fig.savefig(file_name+str(i)+'.pdf')
 
         #set up second page of plots
         global fig2
@@ -1330,7 +1320,7 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
             if Path(file_name + str(i)).is_file():
                 i = i + 1
             else:
-                fig2.savefig('file_name+str(i)' + '.pdf')
+                fig2.savefig(file_name+str(i)+'.pdf')
 
         #print sensitivity tables
         if process == 'exc':
@@ -1359,5 +1349,5 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
 
         return line_diagnostics_1, line_diagnostics_2, line_ratio_diagnostics
 
-    elif show == True:
-        plt.show()
+    #elif show == True:
+    #    plt.show()

@@ -4,7 +4,7 @@ as a function of varying atomic data from the AtomDB files. Requires
 PyAtomdB and Python 3."""
 
 # Keri Heuer
-# Version 0.2, November 22, 2019
+# Version 1.0, January 16, 2020
 
 import matplotlib.pyplot as plt
 import pyatomdb, numpy, pickle
@@ -205,7 +205,7 @@ def vary_a(inputs, values, transition):
     matrix, B, in_range, linelist, table, new_table = [values.get(k) for k in values]
     
     print("****************************************************")
-    print("in vary_a, calculating rate for Te=%e and dens=%e"%(Te, dens))
+    print("in vary_a for " + which_transition + ", calculating rate for Te=%e and dens=%e" %(Te, dens))
     print("****************************************************")
     
     initial_lev = transition[0]
@@ -313,7 +313,7 @@ def vary_exc(inputs, values, which_transition):
     matrix, B, in_range, linelist, table, new_table = [values.get(k) for k in values]
     
     print("***********************************************************************************")
-    print("in vary_exc for ' + which_transition + ', calculating rate for Te=%e and dens=%e" %(Te, dens))
+    print("in vary_exc for " + which_transition + ", calculating rate for Te=%e and dens=%e" %(Te, dens))
     print("***********************************************************************************")
     
     exc_init, exc_final, exc_rates = pyatomdb.apec.gather_rates(Z, z1, Te, dens, do_la= False, \
@@ -1090,8 +1090,8 @@ def plot_multiple_sensitivity(Z, z1, Te, dens, delta_r, A_lines, exc_lines, wave
         plt.tight_layout()
         plt.legend(fontsize='x-small')
         
-def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_2=None, \
-            npnts=None, wavelen=(10,20), Te_range=None, dens_range=None, corrthresh=10e-5, e_signif=0.0):
+def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_2={}, \
+            npnts=2, wavelen={}, Te_range={}, dens_range={}, corrthresh={}, e_signif={}):
 
     """
     Check emissivity sensitivity for specified element, ion, and transition.
@@ -1153,27 +1153,21 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
     line_diagnostics_2, line_ratio_diagnostics
     
     """
-    
-    print("Z="+str(Z), "z1="+str(z1), "Te="+str(Te), "dens="+str(dens), "process="+str(process), \
-          "delta_r="+str(delta_r), "transition="+str(transition), "transition2="+str(transition_2), \
-          "npnts="+str(npnts), "wavelength range="+str(wavelen), "temp range="+str(Te_range), \
-          "dens range="+str(dens_range), "correlation threshold="+str(corrthresh), "epsilon significance="+str(e_signif))
-    
-    if npnts is None:
-        npnts = 2
-    elif transition_2 is None:
-        transition_2 = []
-    elif corrthresh is None:
-        corrthresh = 10e-5
-    elif e_signif is None:
-        e_signif = 0.0
-    elif wavelen is None:
-        wavelen = (10, 20)
-    elif Te_range is None:
-        Te_range = (Te/10, Te*10)
-    elif dens_range is None:
-        dens_range = (10e0, 10e16)
-        
+    #set defaults
+    if npnts == {}: npnts = 2
+    if transition_2 == {}: transition_2 = []
+    if corrthresh == {}: corrthresh = 10e-5
+    if e_signif == {}: e_signif = 0.0
+    if wavelen == {}: wavelen = (10, 20)
+    if Te_range == {}: Te_range = (Te/10, Te*10)
+    if dens_range == {}: dens_range = (10e0, 10e16)
+
+    print("Z=" + str(Z), "z1=" + str(z1), "Te=" + str(Te), "dens=" + str(dens), "process=" + str(process), \
+          "delta_r=" + str(delta_r), "transition=" + str(transition), "transition2=" + str(transition_2), \
+          "npnts=" + str(npnts), "wavelength range=" + str(wavelen), "temp range=" + str(Te_range), \
+          "dens range=" + str(dens_range), "correlation threshold=" + str(corrthresh),
+          "epsilon significance=" + str(e_signif))
+
     if transition_2 is None:    #check sensitivity for a single transition
         inputs, values, transition = set_up(Z, z1, Te, dens, process, delta_r, \
                 transition, transition_2, npnts, wavelen, Te_range, dens_range, corrthresh, e_signif)

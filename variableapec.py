@@ -1231,7 +1231,8 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
 
         plt.show()
 
-        return inputs, new_table, line_diagnostics
+        all_data = {inputs, table, new_table, line_diagnostics}
+        return all_data
 
     elif transition_2 != None:  #calculate diagnostics for a line ratio
         which_transition = transition
@@ -1350,4 +1351,6 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
 
         plt.show()
 
-        return inputs, new_table1, new_table2, line_diagnostics_1, line_diagnostics_2, line_ratio_diagnostics
+        all_data = {inputs, table1, table2, new_table1, new_table2, line_diagnostics_1, \
+                    line_diagnostics_2, line_ratio_diagnostics}
+        return all_data

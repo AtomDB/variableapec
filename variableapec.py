@@ -1147,8 +1147,9 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
   
     Returns
     -------
-    results : dictionary of new_table, line_diagnostics, and if line ratio specified: new_table2 \
-    and line_ratio_diagnostics
+    if one transition specified: inputs, new_table, line_diagnostics
+    if line ratio specified: inputs, new_table1, new_table2, line_diagnostics_1, \
+    line_diagnostics_2, line_ratio_diagnostics
     
     """
     
@@ -1229,6 +1230,8 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
             print(new_table)
 
         plt.show()
+
+        return inputs, new_table, line_diagnostics
 
     elif transition_2 != None:  #calculate diagnostics for a line ratio
         which_transition = transition
@@ -1347,7 +1350,4 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
 
         plt.show()
 
-        return line_diagnostics_1, line_diagnostics_2, line_ratio_diagnostics
-
-    #elif show == True:
-    #    plt.show()
+        return inputs, new_table1, new_table2, line_diagnostics_1, line_diagnostics_2, line_ratio_diagnostics

@@ -999,7 +999,6 @@ def plot_line_ratio_diagnostics(inputs, line_ratio_diagnostics):
     axs2[2,0].set_xlabel('Temperature in K', fontsize=12)
     axs2[2,0].set_ylabel('Line Ratio\n'+text, fontsize=12)
     axs2[2,0].semilogx(temp_bins1, Te_line_ratios, label='Original')
-    plt.tight_layout()
     axs2[2,0].fill_between(temp_bins1, Te_line_ratios_min, Te_line_ratios_max, alpha=0.5, color='g', \
                      label="Range")
     axs2[2,0].legend(fontsize='x-small')
@@ -1012,6 +1011,8 @@ def plot_line_ratio_diagnostics(inputs, line_ratio_diagnostics):
     axs2[2,1].legend(fontsize='x-small')
     axs2[2,1].fill_between(dens_bins1, dens_line_ratios_min, dens_line_ratios_max, alpha=0.5, color='g', label='Range')
     axs2[2,1].legend(fontsize='x-small')
+
+    plt.tight_layout()
 
 def wrapper_check_sensitivity(transition_list):
     """
@@ -1090,7 +1091,7 @@ def plot_multiple_sensitivity(Z, z1, Te, dens, delta_r, A_lines, exc_lines, wave
         plt.legend(fontsize='x-small')
         
 def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_2=None, \
-            npnts=None, wavelen=(10,20), Te_range=(Te/10, Te*10), dens_range=(10e0, 10e16), corrthresh=10e-5, e_signif=0.0):
+            npnts=None, wavelen=(10,20), Te_range=None, dens_range=None, corrthresh=10e-5, e_signif=0.0):
 
     """
     Check emissivity sensitivity for specified element, ion, and transition.
@@ -1168,6 +1169,10 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
         e_signif = 0.0
     elif wavelen is None:
         wavelen = (10, 20)
+    elif Te_range is None:
+        Te_range = (Te/10, Te*10)
+    elif dens_range is None:
+        dens_range = (10e0, 10e16)
         
     if transition_2 is None:    #check sensitivity for a single transition
         inputs, values, transition = set_up(Z, z1, Te, dens, process, delta_r, \

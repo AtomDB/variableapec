@@ -7,13 +7,11 @@ PyAtomdB and Python 3."""
 # Version 1.0, January 16, 2020
 
 import matplotlib.pyplot as plt
-import pyatomdb, numpy, pickle
+import pyatomdb, numpy, pickle, pathlib
 from astropy.table import Table, Column
-from astropy.io import ascii
 from matplotlib.offsetbox import AnchoredText
 import matplotlib.pylab as pylab
 from decimal import Decimal
-from pathlib import Path
 
 def ionize(Z, z1, Te, dens, la_matrix, in_range, pop_fraction):
     
@@ -205,7 +203,7 @@ def vary_a(inputs, values, transition):
     matrix, B, in_range, linelist, table, new_table = [values.get(k) for k in values]
     
     print("****************************************************")
-    print("in vary_a for " + which_transition + ", calculating rate for Te=%e and dens=%e" %(Te, dens))
+    print("in vary_a for " + str(transition) + ", calculating rate for Te=%e and dens=%e" %(Te, dens))
     print("****************************************************")
     
     initial_lev = transition[0]
@@ -313,7 +311,7 @@ def vary_exc(inputs, values, which_transition):
     matrix, B, in_range, linelist, table, new_table = [values.get(k) for k in values]
     
     print("***********************************************************************************")
-    print("in vary_exc for " + which_transition + ", calculating rate for Te=%e and dens=%e" %(Te, dens))
+    print("in vary_exc for " + str(transition) + ", calculating rate for Te=%e and dens=%e" %(Te, dens))
     print("***********************************************************************************")
     
     exc_init, exc_final, exc_rates = pyatomdb.apec.gather_rates(Z, z1, Te, dens, do_la= False, \
@@ -1216,6 +1214,17 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
             else:
                 fig.savefig(file_name+str(i)+'.pdf')
 
+        file_name = element + '_' + ion + '_' + process + '_' + \
+                    str(transition[0]) + '-' + str(transition[1]) + '_'
+
+        number = 1
+        for number in range(30):
+            if numberPath(file_name+str(number)).is_file():
+                continue
+            else:
+                fig.savefig(file_name+str(number) + '.pdf')
+                break
+
         # print sensitivity table
         if process == 'exc':
             print("\nFor", element, ion + ", changed inputs:", "excitation rate from level", \
@@ -1230,7 +1239,7 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
 
         plt.show()
 
-        all_data = {inputs, table, new_table, line_diagnostics}
+        all_data = {'inputs':inputs, 'table':table, 'new_table':new_table, 'line_diagnostics':line_diagnostics}
         return all_data
 
     elif transition_2 != None:  #calculate diagnostics for a line ratio
@@ -1285,17 +1294,6 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
         fig.tight_layout()
         fig.subplots_adjust(top=0.86)
 
-        #save first plot
-        numbers = range(50)
-        file_name = element + '_' + ion + '_' + process + '_' + \
-                    str(transition[0]) + '-' + str(transition[1]) + '_' + \
-                    str(transition_2[0]) + '-' + str(transition_2[1]) + 'sensitivity' + '_'
-        for i in range(len(numbers)):
-            if Path(file_name + str(i)).is_file():
-                i = i + 1
-            else:
-                fig.savefig(file_name+str(i)+'.pdf')
-
         #set up second page of plots
         global fig2
         global axs2
@@ -1313,17 +1311,6 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
 
         fig2.tight_layout()
         fig2.subplots_adjust(top=0.84, wspace=0.54, hspace=0.59)
-
-        #save second plot
-        numbers = range(50)
-        file_name = element + '_' + ion + '_' + process + '_' + \
-            str(transition[0]) + '-' + str(transition[1]) + '_' +\
-            str(transition_2[0]) + '-' + str(transition_2[1]) + 'diagnostics' + '_'
-        for i in range(len(numbers)):
-            if Path(file_name + str(i)).is_file():
-                i = i + 1
-            else:
-                fig2.savefig(file_name+str(i)+'.pdf')
 
         #print sensitivity tables
         if process == 'exc':
@@ -1348,8 +1335,26 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
             print("Lines affected at Te="+str(Te) + ", dens="+str(dens))
             print(new_table2)
 
-        plt.show()
+        all_data = {'inputs':inputs, 'table1':table1, 'table2':table2, 'new_table1':new_table1, \
+                    'new_table2':new_table2, 'line_diagnostics_1': line_diagnostics_1, \
+                    'line_diagnostics_2':line_diagnostics_2, 'line_ratio_diagnostics': line_ratio_diagnostics}
 
-        all_data = {inputs, table1, table2, new_table1, new_table2, line_diagnostics_1, \
-                    line_diagnostics_2, line_ratio_diagnostics}
+        # save plots and all_data
+        file_name = element + '_' + ion + '_' + process + '_' + \
+                    str(transition[0]) + '-' + str(transition[1]) + '_' + \
+                    str(transition_2[0]) + '-' + str(transition_2[1])
+        for number in range(1, 20, 1):
+            file = pathlib.Path('data_' + str(number) + '.pkl')
+            if file.exists():
+                continue
+            else:
+                fig.savefig(file_name + '_sensitivity_' + str(number) + '.pdf')
+                fig2.savefig(file_name + '_diagnostics_' + str(number) + '.pdf')
+
+                f = open(file_name+'_data_'+str(number)+'.pkl', 'wb')
+                pickle.dump(all_data, f)
+                f.close()
+                break
+
+        plt.show()
         return all_data

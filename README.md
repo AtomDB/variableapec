@@ -33,11 +33,11 @@ Specify the range of wavelengths to plot affected emission lines to be 10-50 Ang
 	Z, z1, Te, dens, process, delta_r, transition = 26, 17, 3e6, 1, 'A', 0.1, (1,23)
 	variableapec.check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, wavelen=(10, 50))
 	
-Specify the range of temperatures and densities to run line diagnostics on. Default temperature range is (Te/10, Te * 10) and default density range is (10e12, 10e25). 
+Specify the range of temperatures and densities to run line diagnostics on. Default temperature range is (Te/10, Te * 10) and default density range is (10, 1e17). 
 	
 	import variableapec
 	Z, z1, Te, dens, process, delta_r, transition = 26, 17, 3e6, 1, 'A', 0.1, (1,23)
-	variableapec.check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, wavelen=(10, 50), Te_range=(4e5, 10e8), 		dens_range=(1, 10e12))
+	variableapec.check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, wavelen=(10, 50), Te_range=(4e5, 10e8), 		dens_range=(10e12, 10e25))
 	
 Check sensitivity for multiple lines individually with 20% change in direct excitation rate.
 	

@@ -54,6 +54,15 @@ Calculate G or R ratio with 10% uncertainty on direct excitation rate.
 	variableapec.g_ratio(Z, z1, process)
 	variableapec.r_ratio(Z, z1, process)
 	
+Plot the sensitive emission lines of multiple transitions of an ion.
+	
+	import variableapec
+	Z, z1, Te, dens, delta_r = 26, 17, 3e6, 1, 0.1
+	A_lines = {'3C':(27,1), '3D':(23,1), '3E': (17,1), 'M2': (2,1), '3G':(3,1), '3F':(5,1)}
+	exc_lines = {'3C':(1,27), '3D':(1,23), '3E': (1,17), 'M2': (1,2), '3G':(1,3), '3F':(1,5)}
+	variableapec.plot_multiple_sensitivity(Z, z1, Te, dens, delta_r, A_lines, exc_lines)
+
+	
 	
 Output:
 =========

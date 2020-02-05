@@ -485,13 +485,12 @@ def get_tables(inputs, values):
                     'max_eps': epsilon_max })
 
     for number in range(1, 20, 1):
-        filename = name + '_' + str(transition[0] + '_' + str(transition[1] + '_table_' + str(number) + '.fits'
-        file = pathlib.Path(filename)
+        file = pathlib.Path(name + '_' + str(transition[0] + '_' + str(transition[1] + '_table_' + str(number) + '.fits')
         if file.exists():
             continue
         else:
             table.write(name + '_' + str(transition[0] + '_' + str(transition[1] + '_table_' + str(number) + '.fits')
-            new_table.write(name + '_' + str(transition[0] + '_' + str(transition[1] + '_new_table_' + str(number) + '.fits'
+            new_table.write(name + '_' + str(transition[0] + '_' + str(transition[1] + '_new_table_' + str(number) + '.fits')
             break
     return table, new_table, inputs, results
 
@@ -532,7 +531,6 @@ def plot_nei(inputs):
                 number=str(int(key)-1)
                 label='Recombination of '+element+' '+number+'+'
                 axs[0,0].loglog(emiss['Te'], emiss[key], label=label)
-
 
     axs[0,0].legend(fontsize = 'x-small')
     
@@ -1419,7 +1417,6 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
         all_data = {'inputs':inputs, 'table1':table1, 'table2':table2, 'new_table1':new_table1, \
                     'new_table2':new_table2, 'line_diagnostics_1': line_diagnostics_1, \
                     'line_diagnostics_2':line_diagnostics_2, 'line_ratio_diagnostics': line_ratio_diagnostics}
-<<<<<<< HEAD
 
         # save plots and all_data
         file_name = element + '_' + ion + '_' + process + '_' + \
@@ -1433,8 +1430,6 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
                 fig.savefig(file_name + '_sensitivity_' + str(number) + '.pdf')
                 fig2.savefig(file_name + '_diagnostics_' + str(number) + '.pdf')
 
-=======
-
         # save plots and all_data
         file_name = element + '_' + ion + '_' + process + '_' + \
                     str(transition[0]) + '-' + str(transition[1]) + '_' + \
@@ -1447,15 +1442,12 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
                 fig.savefig(file_name + '_sensitivity_' + str(number) + '.pdf')
                 fig2.savefig(file_name + '_diagnostics_' + str(number) + '.pdf')
 
->>>>>>> development
                 f = open(file_name+'_data_'+str(number)+'.pkl', 'wb')
                 pickle.dump(all_data, f)
                 f.close()
                 break
 
         plt.show()
-<<<<<<< HEAD
-=======
         plt.close('all')
->>>>>>> development
+
         return all_data

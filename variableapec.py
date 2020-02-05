@@ -484,6 +484,15 @@ def get_tables(inputs, values):
                     'min_eps': numpy.array(table['Epsilon_1']), \
                     'max_eps': epsilon_max })
 
+    for number in range(1, 20, 1):
+        filename = name + '_' + str(transition[0] + '_' + str(transition[1] + '_table_' + str(number) + '.fits'
+        file = pathlib.Path(filename)
+        if file.exists():
+            continue
+        else:
+            table.write(name + '_' + str(transition[0] + '_' + str(transition[1] + '_table_' + str(number) + '.fits')
+            new_table.write(name + '_' + str(transition[0] + '_' + str(transition[1] + '_new_table_' + str(number) + '.fits'
+            break
     return table, new_table, inputs, results
 
 def plot_nei(inputs):

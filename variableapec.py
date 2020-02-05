@@ -484,6 +484,8 @@ def get_tables(inputs, values):
                     'min_eps': numpy.array(table['Epsilon_1']), \
                     'max_eps': epsilon_max })
 
+
+
     return table, new_table, inputs, results
 
 def plot_nei(inputs):
@@ -637,6 +639,16 @@ def plot_sensitivity(inputs, new_table):
         axs[0,1].annotate(label, xy=(x,y))
 
     axs[0,1].legend(fontsize='x-small')
+
+    t1 = Table([cutoff_data['Lambda'], cutoff_data['dE/dE_orig']], names=('lambda', 'fractional E'))
+    for number in range(1, 20, 1):
+        filename = name + '_' + str(transition[0] + '_' + str(transition[1] + '_sensitivity_' + str(number) + '.fits'
+        file = pathlib.Path(filename)
+        if file.exists():
+            continue
+        else:
+            t1.write(filename)
+            break
     
 def wrapper_plot_sensitivity(inputs, new_table1, new_table2):
     
@@ -679,8 +691,6 @@ def wrapper_plot_sensitivity(inputs, new_table1, new_table2):
     axs[1, 0].legend(fontsize='x-small')
 
     #now plot sensitive epsilons for second transition
-    # Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-    # npnts, wavelen, Te_range, dens_range, corrthresh, e_signif = [inputs_2.get(n) for n in inputs_2]
 
     axs[1, 1].set_xlabel('Wavelength ($\AA$)', fontsize=12)
     axs[1, 1].set_ylabel('% Emissivity Change', fontsize=12)
@@ -746,21 +756,15 @@ def run_line_diagnostics(table, inputs, values, which_transition):
     print("\nChanging temperature now.\n")
 
     temp_bins = list(numpy.geomspace(Te_range[0], Te_range[1], num=20)) #20
-    #temp_bins=[]
-    #for x in t_bins:
-    #    temp_bins.append(x)
 
     Te_eps_orig, Te_eps_min, Te_eps_max =[], [], []
     counter=0
     for temp_Te in temp_bins:
-        #print("Temperature bins:", temp_bins)
-        #print("Current temperature is:", temp_Te)
         Te_inputs, Te_values, transition = set_up(Z, z1, temp_Te, dens, process, delta_r, which_transition, transition_2, \
            npnts, wavelen, Te_range, dens_range, corrthresh, e_signif)
         if process == 'A':
             Te_new_inputs, Te_new_values = vary_a(Te_inputs, Te_values, which_transition)
             Te_table, Te_new_table, Te_inputs, Te_results = get_tables(Te_new_inputs, Te_new_values)
-            #line_index = numpy.where((Te_table['Upper'] == which_transition[0]) & (Te_table['Lower'] == which_transition[1]))[0]
             for a, b, c, d, e in zip(Te_table['Upper'], Te_table['Lower'], Te_table['Epsilon_orig'], Te_table['Epsilon_1'],
                                      Te_table['Epsilon_' + str(npnts)]):
                 if (a, b) == which_transition:
@@ -774,8 +778,6 @@ def run_line_diagnostics(table, inputs, values, which_transition):
         elif process == 'exc':
             Te_new_inputs, Te_new_values = vary_exc(Te_inputs, Te_values, which_transition)
             Te_table, Te_new_table, Te_inputs, Te_results = get_tables(Te_new_inputs, Te_new_values)
-            #line_index = numpy.where((Te_table['Upper'] == which_transition[1]) & (Te_table['Lower'] == which_transition[0]))[0]
-            #Te_table = Te_table[(Te_table['Upper'] == which_transition[1]) & (Te_table['Lower'] == which_transition[0])]
             for a, b, c, d, e in zip(Te_table['Upper'], Te_table['Lower'], Te_table['Epsilon_orig'],
                                      Te_table['Epsilon_1'], Te_table['Epsilon_' + str(npnts)]):
                 if (b, a) == which_transition:
@@ -788,31 +790,21 @@ def run_line_diagnostics(table, inputs, values, which_transition):
 
         counter += 1
         print(str(20-counter), 'temperatures left for', element, ion)
-        #print('\nCurrent Te arrays:\n', Te_eps_orig, '\n', Te_eps_min, '\n', Te_eps_max, '\n')
-        # Te_eps_orig.append(Te_table['Epsilon_orig'][0])
-        # Te_eps_min.append(Te_table['Epsilon_1'][0])
-        # Te_eps_max.append(Te_table['Epsilon_'+str(npnts)][0])
 
 
     #vary density and recalculate emissivities
     print("\nChanging density now.\n")
 
     dens_bins = list(numpy.geomspace(dens_range[0], dens_range[1], num=8)) #8
-    # dens_bins=[]
-    # for x in bins:
-    #     dens_bins.append(x)
 
     dens_eps_orig, dens_eps_min, dens_eps_max =[],[],[]
     counter=0
     for temp_dens in dens_bins:
-        #print("dens bins:", dens_bins)
-        #print("Current density is:", temp_dens)
         dens_inputs, dens_values, transition = set_up(Z, z1, Te, temp_dens, process, delta_r, which_transition, transition_2, \
            npnts, wavelen, Te_range, dens_range, corrthresh, e_signif)
         if process == 'A':
             dens_new_inputs, dens_new_values = vary_a(dens_inputs, dens_values, which_transition)
             dens_table, dens_new_table, dens_inputs, dens_results = get_tables(dens_new_inputs, dens_new_values)
-            #line_index = numpy.where((dens_table['Upper'] == transition[0]) & (dens_table['Lower'] == transition[1]))[0]
             for a, b, c, d, e in zip(dens_table['Upper'], dens_table['Lower'], dens_table['Epsilon_orig'], dens_table['Epsilon_1'],
                                      dens_table['Epsilon_' + str(npnts)]):
                 if (a, b) == which_transition:
@@ -826,7 +818,6 @@ def run_line_diagnostics(table, inputs, values, which_transition):
         elif process == 'exc':
             dens_new_inputs, dens_new_values = vary_exc(dens_inputs, dens_values, which_transition)
             dens_table, dens_new_table, dens_inputs, dens_results = get_tables(dens_new_inputs, dens_new_values)
-            #line_index = numpy.where((dens_table['Upper'] == transition[1]) & (dens_table['Lower'] == transition[0]))[0]
             for a, b, c, d, e in zip(dens_table['Upper'], dens_table['Lower'], dens_table['Epsilon_orig'], dens_table['Epsilon_1'],
                                      dens_table['Epsilon_' + str(npnts)]):
                 if (b, a) == which_transition:
@@ -840,12 +831,6 @@ def run_line_diagnostics(table, inputs, values, which_transition):
 
         counter += 1
         print(str(8-counter), 'densities left for', element, ion)
-        #print('\nCurrent dens arrays:\n', dens_eps_orig, '\n', dens_eps_min, '\n', dens_eps_max, '\n')
-
-        # dens_table = dens_table[line_index]
-        # dens_eps_orig.append(dens_table['Epsilon_orig'][0]/temp_dens)
-        # dens_eps_min.append(dens_table['Epsilon_1'][0]/temp_dens)
-        # dens_eps_max.append(dens_table['Epsilon_'+str(npnts)][0]/temp_dens)
     
     if process == 'A':
         label = 'Range due to $\Delta $\pm$' + percentage + ' in A value'
@@ -866,6 +851,18 @@ def run_line_diagnostics(table, inputs, values, which_transition):
     file = open('line_diagnostics.pkl', 'wb')
     pickle.dump(line_diagnostics, file)
     file.close()
+
+    t1 = Table([temp_bins, Te_eps_orig, Te_eps_min, Te_eps_max], names=('temp', 'orig', 'min', 'max'))
+    t2 = Table([dens_bins, dens_eps_orig, dens_eps_min, dens_eps_max],  names=('dens', 'orig', 'min', 'max'))
+    for number in range(1, 20, 1):
+        filename = name + '_' + str(transition[0] + '_' + str(transition[1] + '_line_diagnostic_Te_' + str(number) + '.fits'
+        file = pathlib.Path(filename)
+        if file.exists():
+            continue
+        else:
+            t1.write(name + '_'+str(transition[0]+'_'+str(transition[1]+'_line_diagnostic_Te_' + str(number) + '.fits')
+            t2.write(name + '_'+str(transition[0]+'_'+str(transition[1]+'_line_diagnostic_dens_' + str(number) + '.fits')
+            break
 
     return line_diagnostics
 
@@ -1411,7 +1408,6 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
             else:
                 fig.savefig(file_name + '_sensitivity_' + str(number) + '.pdf')
                 fig2.savefig(file_name + '_diagnostics_' + str(number) + '.pdf')
-
                 f = open(file_name+'_data_'+str(number)+'.pkl', 'wb')
                 pickle.dump(all_data, f)
                 f.close()

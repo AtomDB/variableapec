@@ -1241,7 +1241,7 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
           "dens range=" + str(dens_range), "correlation threshold=" + str(corrthresh),
           "epsilon significance=" + str(e_signif))
 
-    if transition_2 is None:    #check sensitivity for a single transition
+    if transition_2 =={}:    #check sensitivity for a single transition
         inputs, values, transition = set_up(Z, z1, Te, dens, process, delta_r, \
                 transition, transition_2, npnts, wavelen, Te_range, dens_range, corrthresh, e_signif)
         if process == 'A':
@@ -1323,7 +1323,7 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
         all_data = {'inputs':inputs, 'table':table, 'new_table':new_table, 'line_diagnostics':line_diagnostics}
         return all_data
 
-    elif transition_2 != None:  #calculate diagnostics for a line ratio
+    elif transition_2 != {}:  #calculate diagnostics for a line ratio
         which_transition = transition
         print("Doing calculations for", which_transition)
         inputs, values, transition = set_up(Z, z1, Te, dens, process, delta_r, \

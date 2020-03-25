@@ -6,8 +6,8 @@ PyAtomdB and Python 3."""
 # Keri Heuer
 # Version 2.0, March 25, 2020
 
-import matplotlib.pyplot as plt, matplotlib.ticker as mtick, scip.stats as stats, \
-pyatomdb, numpy, pickle, pathlib, csv, os, errno, haslib, requests, urllib.request, \
+import matplotlib.pyplot as plt, matplotlib.ticker as mtick, scipy.stats as stats, \
+pyatomdb, numpy, pickle, pathlib, csv, os, errno, hashlib, requests, urllib.request, \
 urllib.parse, urllib.error, time, subprocess, shutil, wget, glob, datetime, ftplib, \
 pathlib, collections, operator, requests, matplotlib.pylab as pylab
 from io import StringIO

@@ -2896,11 +2896,10 @@ def calc_ioniz_popn(which_transition, x, old_rate, levpop, Z, z1, z1_drv,T, Ne, 
 #-----------------------------------------------------------------------
 #-----------------------------------------------------------------------
 
-def calc_direct_exc_emiss(Z, z1, up, lo, Te, dens, unit='K'):
+def calc_direct_exc_emiss(Z, z1, up, lo, Te, dens, unit='K', datacache={}):
     if unit == 'keV': Te = Te/11604525.0061657
-    d={}
     init, final, rates = pyatomdb.apec.gather_rates(Z, z1, Te, dens, do_la=True, \
-                                                        do_ec=True, do_ir=True, do_pc=True, do_ai=True, datacache=d)
+                                                        do_ec=True, do_ir=True, do_pc=True, do_ai=True, datacache=datacache)
     lvdat = pyatomdb.atomdb.get_data(Z, z1, 'LV')
     nlev = len(lvdat[1].data)
 
@@ -2911,14 +2910,14 @@ def calc_direct_exc_emiss(Z, z1, up, lo, Te, dens, unit='K'):
         matrix[x][y] += rates[i]
 
     # find fraction of each ion in plasma to multiply epsilons by
-    pop_fraction = pyatomdb.apec.solve_ionbal_eigen(Z, Te, teunit='K', datacache=d)
+    pop_fraction = pyatomdb.apec.solve_ionbal_eigen(Z, Te, teunit='K', datacache=datacache)
 
     # set up and solve CR matrix for level populations
     matrix[0][:], B[0] = 1.0, 1.0
     lev_pop = numpy.linalg.solve(matrix, B)
     lev_pop *= pop_fraction[z1 - 1]
 
-    exc_rate = pyatomdb.atomdb.get_maxwell_rate(Te, Z=Z, z1=1, dtype='EC', finallev=up, initlev=lo, datacache=d, exconly=True)
+    exc_rate = pyatomdb.atomdb.get_maxwell_rate(Te, Z=Z, z1=1, dtype='EC', finallev=up, initlev=lo, datacache=datacache, exconly=True)
     emiss = exc_rate * lev_pop[lo - 1]
 
     return emiss[0]

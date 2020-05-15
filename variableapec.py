@@ -561,17 +561,15 @@ def run_line_diagnostics(Z, z1, up, lo, Te, dens, vary, delta_r, Te_range={}, de
     else: temp_num, dens_num = num, num
 
     #set default ranges blank
-    if (Te_range == {} or Te_range == -1) & (dens_range == {} or dens_range == -1):    #do both
-        type, temperature, density = 'both', True, True
-        Te_range, dens_range = (Te / 10, Te * 10), (1, 1e16)
-    elif (Te_range != {}) and (dens_range != {}):
-        type, temperature, density = 'both', True, True
+    if Te_range == -1: Te_range = (Te/10, Te*10)
+    if dens_range == -1: dens_range = (1, 1e16)
+
     #check what type of diagnostics
-    if (Te_range == {}) & (dens_range != {}): #run dens diagnostics
-        if dens_range == -1: dens_range = (1, 1e16)
+    if ((Te_range == {}) & (dens_range == {})) or ((Te_range == -1) & (dens_range == -1)): #run both
+        type, temperature, density = 'both', True, True
+    elif (Te_range == {}) & (dens_range != {}): #run dens diagnostics
         type, temperature, density = 'dens', False, True
     elif (Te_range != {}) & (dens_range == {}): #run temp diagnostics
-        if Te_range == -1: Te_range = (Te/10, Te*10)
         type, temperature, density = 'temp', True, False
 
     print("Running", type, "diagnostics")
@@ -3007,6 +3005,50 @@ def get_ionfrac(Z, Te, delta_r, varyir=False, Teunit='K', z1=[]):
         ret = {'min': min, 'median': median, 'max': max}
     return ret
 
+def get_all_new_emiss(Z, z1, up, lo, Te, dens, vary, delta_r):
+    """ Varies Z, z1 'exc' or 'A' by delta_r at specified Te and dens
+    and returns table of all lines with original epsilon, dE/dR and dE/E,
+    sorted by greatest change in emissivity dE/E to smalelst.
+    Writes table to csv file as well."""
+
+    element = pyatomdb.atomic.Ztoelsymb(Z)
+    extras = {'process':vary, 'delta_r':delta_r,'transition':(up, lo), 'transition_2': [], 'npnts':2,
+            'wavelen': {}, 'Te_range':{},'dens_range': {},'corrthresh':10e-5, 'e_signif':0.0}
+    if vary == 'exc':
+        extras.update({'transition': (lo, up)})
+        inputs, values = variableapec.set_up(Z, z1, Te, dens, extras=extras)
+        new_inputs, new_values = vary_exc(inputs, values, transition)
+        table, new_table, inputs, results = get_tables(new_inputs, new_values)
+    elif vary == 'A':
+        inputs, values = variableapec.set_up(Z, z1, Te, dens, extras=extras)
+        new_inputs, new_values = vary_a(inputs, values, transition)
+        table, new_table, inputs, results = get_tables(new_inputs, new_values)
+
+    try:
+      new_table.sort('|dE/E|', reverse=True)
+    except TypeError:
+      new_table.sort('|dE/E|')
+      new_table = new_table[::-1]
+
+    for number in range(1, 20):
+        fname = 'new epsilons for ' + element + str(z1) + ' ' + str(number) + '.csv'
+        file = pathlib.Path(fname)
+        if file.exists():
+            continue
+        else:
+            with open(fname, mode='w') as csv_file:
+                writer = csv.DictWriter(csv_file, fieldnames=new_table.colnames)
+                writer.writeheader()
+                for row in new_table:
+                    data = {}
+                    for col in new_table.colnames:
+                        data.update({col: row[col]})
+                    writer.writerow(data)
+            break
+
+    print(new_table)
+    return new_table
+
 def get_line_emiss(Z, z1, up, lo, vary, delta_r, Te={}, dens=1):
     """ Te can be int or list. Returns line emiss values in the following order:
     min, orig, max. If Te input is a list, returns array of length Te.
@@ -3897,3 +3939,177 @@ def r_ratio(Z, z1, Te, dens, vary, delta_r, dens_range={}, num={}, need_data=Tru
         plt.show()
 
     return {'dens': dens_bins, 'orig': R_orig, 'min': R_min, 'max': R_max}
+
+def find_CSD_change(Z, z1, delta_r, Te={}, frac={}, varyir={}, printout=True):
+    """ Find the change in CSD at specified temp or ion fraction.
+    Default is applying random error from Gaussian distribution
+    to all rates with a maximum error/sigma = delta_r.
+    If varyir= 'i' or 'r', will gives changes for varying i or r rate of only the z1 ion.
+    Te in K. Frac is abundance as a fraction of peak, i.e. half peak is 0.5.
+    z1 can either be an int (single ion) or a list [] of multiple.
+    If you don't want the routine to print out the orig and new values,
+    make printout=False.
+
+    Returns: list of percent_change_Te and/or percent_change_abund
+    where percent change is the difference from +/- error as a fraction of original value."""
+
+    percent_change_Te, percent_change_abund = [], []
+
+    Telist = numpy.logspace(4, 9, 1251)
+    element = pyatomdb.atomic.Ztoelsymb(Z)
+    d = {}
+
+    if type(z1) == int:
+        ions = [z1]
+    else:
+        ions = z1
+
+    if varyir != {}:
+        #vary z1 rate only
+        for z1 in ions:
+            if varyir == 'i':
+                print("Varying ionization rate for", element, str(z1-1), "+ ion only...\n")
+            elif varyir == 'r':
+                print("Varying recombination rate for", element, str(z1 - 1), "+ ion only...\n")
+
+            eqpopn, pospopn, negpopn = get_new_popns(Telist, Z, z1, varyir, delta_r)
+
+            #if frac abundance specified, find temp change in new CSD at that fraction
+            if frac != {}:
+                peak = numpy.max(eqpopn[:, z1 - 1])
+                index = numpy.argmax(eqpopn[:, z1 - 1])
+                next_peak = numpy.max(eqpopn[:, z1])
+                next_index = numpy.argmax(eqpopn[:, z1])
+
+                # interpolate
+                min_temp = numpy.interp(frac * peak, negpopn[index:, z1-1][::-1], Telist[index:][::-1])
+                next_min_temp = numpy.interp(frac * next_peak, negpopn[:next_index, z1], Telist[:next_index])
+                max_temp = numpy.interp(frac * peak, pospopn[index:, z1-1][::-1], Telist[index:][::-1])
+                next_max_temp = numpy.interp(frac * next_peak, pospopn[:next_index, z1], Telist[:next_index])
+
+                orig_dt = max_temp - min_temp
+                orig_dex_change = numpy.log10(max_temp) - numpy.log10(min_temp)
+                next_dt = next_max_temp - next_min_temp
+                next_dex_change = numpy.log10(next_max_temp) - numpy.log10(next_min_temp)
+
+                if printout == True:
+                    print(element, str(z1-1), "+ original temperature at", frac, "*peak is", Telist[index], "(Log(T) = ", numpy.log10(Telist[index]))
+                    print("\n New temperature range in K is", min_temp, "to", max_temp, "i.e. dT =", orig_dt)
+                    print("\n Log(T) range is", numpy.log10(min_temp), "to", numpy.log10(max_temp), "i.e. dLog(T) =", orig_dex_change)
+                    # print("\n\nThis also affects", element, str(z1), "+:")
+                    # print("Original temperature in K at", frac, "*peak was", Telist[next_index], "(Log(T) = ", numpy.log10(Telist[next_index]))
+                    # print("\n New temperature range in K is", next_min_temp, "to", next_max_temp, "i.e. dT =", next_dt)
+                    # print("\n Log(T) new range is", numpy.log10(next_min_temp), "to", numpy.log10(next_max_temp), "i.e. dLog(T) =", next_dex_change)
+                    print("\n")
+                percent_change_Te.append(abs(orig_dt/Telist[index]))
+
+            #if temperature given, find abundance change in new CSD at that temperature
+            if Te != {}:
+                #original abundance
+                pop_fraction = pyatomdb.apec.solve_ionbal_eigen(Z, Te, teunit='K', datacache=d)
+                orig = pop_fraction[z1-1]
+                next_orig = pop_fraction[z1]
+
+                min = numpy.interp(Te, Telist, negpopn[:, z1 - 1])
+                max = numpy.interp(Te, Telist, pospopn[:, z1 - 1])
+                next_min = numpy.interp(Te, Telist, negpopn[:, z1])
+                next_max = numpy.interp(Te, Telist, pospopn[:, z1])
+
+                #find change
+                dA = max - min
+                log_dA = -numpy.log10(max) - (-numpy.log10(min))
+                next_dA = next_max - next_min
+                next_log_dA = -numpy.log10(next_max) - (-numpy.log10(next_min))
+
+                if printout == True:
+                    print(element, str(z1 - 1), "+ original abundance at", "%.2E" % Decimal(Te), "K =", orig, "(-Log10(X) =", -numpy.log10(orig), ')\n')
+                    print("New abundance range is", min, "to", max, "i.e. d_abund =", dA)
+                    print("\n(-Log10(X) new range is", -numpy.log10(min), "to", -numpy.log10(max), '), i.e. d_log_abund =', log_dA)
+                    # print("\n\n This also affects neighbor ion", element, str(z1), "+:")
+                    # print("\nOriginal abundance at", "%.2E" % Decimal(Te), "K =", next_orig, "(-Log10(X) =", -numpy.log10(next_orig), ')\n')
+                    # print("New abundance range is", next_min, "to", next_max, "i.e. d_abund =", next_dA)
+                    # print("\n(-Log10(X) new range is", -numpy.log10(next_min), "to", -numpy.log10(next_max), '), i.e. d_log_abund =', next_log_dA)
+                    print("\n")
+                percent_change_abund.append(abs(dA/orig))
+
+    #if varyir not specified, monte carlo rates
+    else:
+        print("\n Varying all rate coefficients for", element, '\n')
+        eqpopn, pospopn, negpopn = variableapec.monte_carlo_csd(Z, delta_r, 100, makefiles=False, plot=False)
+
+        for z1 in ions:
+            # if frac abundance specified, find temp change in new CSD at that fraction
+            if frac != {}:
+                peak = numpy.max(eqpopn[:, z1 - 1])
+                index = numpy.argmax(eqpopn[:, z1 - 1])
+                next_peak = numpy.max(eqpopn[:, z1])
+                next_index = numpy.argmax(eqpopn[:, z1])
+
+                # interpolate
+                min_temp = numpy.interp(frac * peak, negpopn[index:, z1 - 1][::-1], Telist[index:][::-1])
+                next_min_temp = numpy.interp(frac * next_peak, negpopn[:next_index, z1], Telist[:next_index])
+                max_temp = numpy.interp(frac * peak, pospopn[index:, z1 - 1][::-1], Telist[index:][::-1])
+                next_max_temp = numpy.interp(frac * next_peak, pospopn[:next_index, z1], Telist[:next_index])
+
+                orig_dt = max_temp - min_temp
+                orig_dex_change = numpy.log10(max_temp) - numpy.log10(min_temp)
+                next_dt = next_max_temp - next_min_temp
+                next_dex_change = numpy.log10(next_max_temp) - numpy.log10(next_min_temp)
+
+                if printout == True:
+                    print(element, str(z1 - 1), "+ original temperature at", frac, "*peak is", Telist[index], "(Log(T) = ",
+                    numpy.log10(Telist[index]))
+                    print("\n New temperature range in K is", min_temp, "to", max_temp, "i.e. dT =", orig_dt)
+                    print("\n Log(T) range is", numpy.log10(min_temp), "to", numpy.log10(max_temp), "i.e. dLog(T) =",
+                          orig_dex_change)
+                    # print("\n\nThis also affects", element, str(z1), "+:")
+                    # print("Original temperature in K at", frac, "*peak was", Telist[next_index], "(Log(T) = ",
+                    #       numpy.log10(Telist[next_index]))
+                    # print("\n New temperature range in K is", next_min_temp, "to", next_max_temp, "i.e. dT =", next_dt)
+                    # print("\n Log(T) new range is", numpy.log10(next_min_temp), "to", numpy.log10(next_max_temp),
+                    #       "i.e. dLog(T) =", next_dex_change)
+                    print("\n")
+                percent_change_Te.append(abs(orig_dt / Telist[index]))
+
+            # if temperature given, find abundance change in new CSD at that temperature
+            if Te != {}:
+                # original abundance
+                pop_fraction = pyatomdb.apec.solve_ionbal_eigen(Z, Te, teunit='K', datacache=d)
+                orig = pop_fraction[z1 - 1]
+                next_orig = pop_fraction[z1]
+
+                min = numpy.interp(Te, Telist, negpopn[:, z1 - 1])
+                max = numpy.interp(Te, Telist, pospopn[:, z1 - 1])
+                next_min = numpy.interp(Te, Telist, negpopn[:, z1])
+                next_max = numpy.interp(Te, Telist, pospopn[:, z1])
+
+                # find change
+                dA = max - min
+                log_dA = -numpy.log10(max) - (-numpy.log10(min))
+                next_dA = next_max - next_min
+                next_log_dA = -numpy.log10(next_max) - (-numpy.log10(next_min))
+
+                if printout == True:
+                    print('\n', element, str(z1 - 1), "+ original abundance at", "%.2E" % Decimal(Te), "K =", orig,
+                          "(-Log10(X) =", -numpy.log10(orig), ')\n')
+                    print("New abundance range is", min, "to", max, "i.e. d_abund =", dA)
+                    print("\n(-Log10(X) new range is", -numpy.log10(min), "to", -numpy.log10(max), '), i.e. d_log_abund =',
+                          log_dA)
+                    # print("\n\n This also affects neighbor ion", element, str(z1), "+:")
+                    # print("\nOriginal abundance at", "%.2E" % Decimal(Te), "K =", next_orig, "(-Log10(X) =",
+                    #       -numpy.log10(next_orig) + ')\n')
+                    # print("New abundance range is", next_min, "to", next_max, "i.e. d_abund =", next_dA)
+                    # print("\n(-Log10(X) new range is", -numpy.log10(next_min), "to",
+                    #       -numpy.log10(next_max) + '), i.e. d_log_abund =', next_log_dA)
+                    print("\n")
+                percent_change_abund.append(abs(dA / orig))
+
+    if (Te != {}) & (frac == {}):
+        print("Fractional change in abundances:", percent_change_abund)
+        return percent_change_abund
+    elif (Te == {}) & (frac != {}):
+        print("Fractional change in temperatures:", percent_change_Te)
+        return percent_change_Te
+    else:
+        print("Fractional change in abundances:", percent_change_abund, "\nFractional change in temperatures:", percent_change_Te)
+        return percent_change_Te, percent_change_abund

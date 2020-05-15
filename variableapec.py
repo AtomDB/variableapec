@@ -3357,29 +3357,6 @@ def get_orig_popn(Z, Telist):
     eqpopn = solve_ionrec(Telist, ionlist, reclist, Z)
     return eqpopn
 
-def calc_lev_pop(Z, z1, Te, dens, unit='K'):
-    if unit == 'keV': Te = Te / 11604525.0061657
-    init, final, rates = pyatomdb.apec.gather_rates(Z, z1, Te, dens, do_la=True, \
-                                                    do_ec=True, do_ir=True, do_pc=True, do_ai=True, datacache=d)
-    lvdat = pyatomdb.atomdb.get_data(Z, z1, 'LV')
-    nlev = len(lvdat[1].data)
-
-    matrix, B = numpy.zeros((nlev, nlev)), numpy.zeros(nlev)
-    # populate full CR matrix by summing rates for all processes
-    for i in range(len(init)):
-        x, y = final[i], init[i]
-        matrix[x][y] += rates[i]
-
-    # find fraction of each ion in plasma to multiply epsilons by
-    pop_fraction = pyatomdb.apec.solve_ionbal_eigen(Z, Te, teunit='K', datacache=d)
-
-    # set up and solve CR matrix for level populations
-    matrix[0][:], B[0] = 1.0, 1.0
-    lev_pop = numpy.linalg.solve(matrix, B)
-    lev_pop *= pop_fraction[z1 - 1]
-
-    return lev_pop
-
 def blended_line_ratio(Z, z1, Te, dens, vary, delta_r, transition_list, denom, type={}, num={}, Te_range={}, dens_range={}, plot=False):
     #specify equation of blended line ratio
     #i.e. denom=1, then blended line ratio = [line 1 + line 2] / line 3

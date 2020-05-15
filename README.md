@@ -1,11 +1,12 @@
 # variableapec
-For looking at emission and line ratios as function of varying atomic data.
+For looking at emission and line ratios as function of atomic data uncertainties.
 
-Varies any fundamental atomic data by a set amount and re-runs the emissivity calculations to identify which lines are sensitive to the parameter(s) changed. By making use of uncertainty estimates within the AtomDB project, the routine allows identification of which processes will be of most impact in analyzing existing and upcoming high resolution data. Routine outputs plots of sensitive emission lines and line diagnostics (emission as a function of temperature and density).
+Varies any fundamental atomic data by a set amount and re-runs the emissivity calculations to identify which lines are sensitive to the parameter(s) changed. By making use of uncertainty estimates within the AtomDB project, the routine allows identification of which processes will be of most impact in analyzing existing and upcoming high resolution data. Routines included in package: calculating new emissivities for all lines of an ion after adding uncertainty to 1 line, calculating sensitivity of one line to multiple magnitudes of uncertainties in another line, varying all lines of a line ratios (classical line ratio, g and r ratios, blended line ratios) and recalculating over range of temperatures and densities, line diagnostics over a range of temperatures and densities, partial derivatives of all lines (dE/dR and dE/E) due to changes in one or more rates, finding lines affected by more than 2% due to rate variations. 
 
 Installation:
 ============
 Requires PyAtomDB package and Python 3.
+
 
 Usage Examples:
 ==============

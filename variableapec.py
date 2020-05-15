@@ -2979,7 +2979,7 @@ def get_ionfrac(Z, Te, delta_r, varyir=False, Teunit='K', z1=[]):
 
     #check what type of CSD varying
     if varyir == False:
-        avg, low, high = variableapec.monte_carlo_csd(Z, delta_r, 100, makefiles=False, plot=False)
+        avg, low, high = monte_carlo_csd(Z, delta_r, 100, makefiles=False, plot=False)
     elif (varyir != False) and (z1 == []):
         print("Must specify z1 to change rate for, exiting.")
         exit()
@@ -3089,7 +3089,7 @@ def get_line_emiss(Z, z1, up, lo, vary, delta_r, Te={}, dens=1):
 
 def get_peak_abund(Z, delta_r, z1=[]):
     """ Returns dictionary of min, median, max peak abundance values from Monte Carlo CSD"""
-    avg, low, high = variableapec.monte_carlo_csd(Z, delta_r, 100, makefiles=False, plot=False)
+    avg, low, high = monte_carlo_csd(Z, delta_r, 100, makefiles=False, plot=False)
     median, min, max = numpy.zeros([Z+1]), numpy.zeros([Z+1]), numpy.zeros([Z+1])
     for tmp_z1 in range(1, Z+1):
         peak_idx = numpy.argmax(avg[:, tmp_z1-1])
@@ -3102,7 +3102,7 @@ def get_peak_abund(Z, delta_r, z1=[]):
 
 def find_max_error_csd(Z, z1, delta_r):     ### Not working
     """ Finds temperature where CSD range from +/- delta_r is the largest"""
-    median, min, max = variableapec.monte_carlo_csd(Z, delta_r, 100, makefiles=False, plot=False)
+    median, min, max = monte_carlo_csd(Z, delta_r, 100, makefiles=False, plot=False)
     Telist = numpy.logspace(4,9,1251)
     percent_error, i = 0,0
 
@@ -3153,7 +3153,7 @@ def find_new_temp(Z, frac, delta_r, vary='ir', z1={}, unit='K'):
             peak, index = numpy.max(eqpopn[:, z1 - 1]), numpy.argmax(eqpopn[:, z1 - 1])
             orig_temps[i, z1-1] = numpy.interp(frac[i] * peak, eqpopn[:, z1-1][::-1], Telist[::-1])
             min_temp[i, z1-1] = numpy.interp(frac[i] * peak, negpopn[:, z1 - 1][::-1], Telist[::-1])
-            max_temp[i, z1-1] =  numpy.interp(frac[i] * peak, pospopn[:, z1 - 1][::-1], Telist[::-1])
+            max_temp[i, z1-1] = numpy.interp(frac[i] * peak, pospopn[:, z1 - 1][::-1], Telist[::-1])
 
     if z1 == {}: ret = {'orig': orig_temps, 'min': min, 'max': max}
     else: ret = {'orig': orig_temps[:, z1-1], 'min': min_temps[:, z1-1], 'max': max_temps[:, z1-1]}
@@ -3916,7 +3916,7 @@ def r_ratio(Z, z1, Te, dens, vary, delta_r, dens_range={}, num={}, need_data=Tru
 
     return {'dens': dens_bins, 'orig': R_orig, 'min': R_min, 'max': R_max}
 
-def find_CSD_change(Z, z1, delta_r, Te={}, frac={}, varyir={}, printout=True):
+def find_CSD_change(Z, z1, delta_r, Te={}, frac={}, varyir={}, datacache={}, printout=True):
     """ Find the change in CSD at specified temp or ion fraction.
     Default is applying random error from Gaussian distribution
     to all rates with a maximum error/sigma = delta_r.
@@ -4011,7 +4011,7 @@ def find_CSD_change(Z, z1, delta_r, Te={}, frac={}, varyir={}, printout=True):
     #if varyir not specified, monte carlo rates
     else:
         print("\n Varying all rate coefficients for", element, '\n')
-        eqpopn, pospopn, negpopn = variableapec.monte_carlo_csd(Z, delta_r, 100, makefiles=False, plot=False)
+        eqpopn, pospopn, negpopn = monte_carlo_csd(Z, delta_r, 100, makefiles=False, plot=False)
 
         for z1 in ions:
             # if frac abundance specified, find temp change in new CSD at that fraction

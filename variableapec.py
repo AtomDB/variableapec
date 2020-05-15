@@ -3186,7 +3186,7 @@ def find_abund_change(Z, Te, delta_r, vary, z1={}, unit='K'):
     if z1 == {}: return abund_change
     else: return abund_change[:, z1-1]
 
-def line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, Te={}, dens={}):
+def line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, temps={}, dens=1):
     """ Calculates fractional change in emissivity dE/E for
     specified Z (element), z1 (ion charge+1), up, lo line.
     Vary either 'exc' or 'A' for each transition in trans_list
@@ -3197,9 +3197,9 @@ def line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, Te={}, dens={}):
     errors : list
     """
 
-    if Te == 'peak': temps = [variableapec.find_peak_Te]
-    elif Te == {}: temps = test.temps_of_interest(Z, z1, numpy.logspace(4,9,1251))
-    if dens == {}: dens = 1
+    if temps == 'peak': temps = [variableapec.find_peak_Te]
+    if isinstace(temps, int) or isinstance(temps, float): temps = [temps]
+    elif temps == {}: temps = test.temps_of_interest(Z, z1, numpy.logspace(4,9,1251))
 
     element = pyatomdb.atomic.Ztoelsymb(Z)
     ion = pyatomdb.atomic.int_to_roman(z1)

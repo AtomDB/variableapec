@@ -2922,8 +2922,8 @@ def calc_direct_exc_emiss(Z, z1, up, lo, Te, dens, unit='K', datacache={}):
 
     return emiss[0]
 
-def calc_lev_pop(Z, z1, Te, dens, unit='K', datacache={}):
-    if unit == 'keV': Te = Te / 11604525.0061657
+def calc_lev_pop(Z, z1, Te, dens, Teunit='K', datacache={}):
+    if Teunit == 'keV': Te = Te / 11604525.0061657
     init, final, rates = pyatomdb.apec.gather_rates(Z, z1, Te, dens, do_la=True, \
                                                     do_ec=True, do_ir=True, do_pc=True, do_ai=True, datacache=datacache)
     lvdat = pyatomdb.atomdb.get_data(Z, z1, 'LV')

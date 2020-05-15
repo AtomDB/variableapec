@@ -1,72 +1,56 @@
 # variableapec
-For looking at emission and line ratios as function of varying atomic data.
+For looking at emission and line ratios as function of atomic data uncertainties.
 
-Varies any fundamental atomic data by a set amount and re-runs the emissivity calculations to identify which lines are sensitive to the parameter(s) changed. By making use of uncertainty estimates within the AtomDB project, the routine allows identification of which processes will be of most impact in analyzing existing and upcoming high resolution data. Routine outputs plots of sensitive emission lines and line diagnostics (emission as a function of temperature and density).
+Varies any fundamental atomic data by a set amount and re-runs the emissivity calculations to identify which lines are sensitive to the parameter(s) changed. By making use of uncertainty estimates within the AtomDB project, the routine allows identification of which processes will be of most impact in analyzing existing and upcoming high resolution data. Routines included in package: calculating new emissivities for all lines of an ion after adding uncertainty to 1 line, calculating sensitivity of one line to multiple magnitudes of uncertainties in another line, varying all lines of a line ratios (classical line ratio, g and r ratios, blended line ratios) and recalculating over range of temperatures and densities, line diagnostics over a range of temperatures and densities, partial derivatives of all lines (dE/dR and dE/E) due to changes in one or more rates, finding lines affected by more than 2% due to rate variations. 
 
 Installation:
 ============
 Requires PyAtomDB package and Python 3.
 
+
 Usage Examples:
 ==============
-Check the emissivity sensitivity to a 10% change in the A value for 27->1 transition for Fe XVII at 3e6 K and dens = 1:
+Check new line emissivities from a 10% change in 27->1 A value for Fe XVII at 3e6 K and dens = 1:
 
 	import variableapec
-	Z, z1, Te, dens, process, delta_r, transition = 26, 17, 3e6, 1, 'A', 0.1, (27,1)
-	variableapec.check_sensitivity(Z, z1, Te, dens, process, delta_r, transition)
+	Z, z1, up, lo, Te, dens, vary, delta_r = 26, 17, 27, 1, 3e6, 1, 'A', 0.1
+	new_emiss = variableapec.get_all_new_emiss(Z, z1, up, lo, Te, dens, vary, delta_r)
 
-Check the emissivity sensitivity to a 10% change in the direct excitation rate for 1->23 transition for Fe XVII at 1e6 K and dens = 1:
-
-	import variableapec
-	Z, z1, Te, dens, process, delta_r, transition = 26, 17, 3e6, 1, 'A', 0.1, (1,23)
-	variableapec.check_sensitivity(Z, z1, Te, dens, process, delta_r, transition)
-
-Check the emissivity sensitivity of Fe XVII line ratio 1->27/1->23 for a 10% change in the direct excitation rate for these transitions at 3e6 K and dens =1:
+Check new line emissivities from a 10% change in 23->1 direct exc rate Fe XVII at 1e6 K and dens = 1:
 
 	import variableapec
-	Z, z1, Te, dens, process, delta_r, transition, transition_2 = 26, 17, 3e6, 1, 'exc', 0.1, (1, 27), (1, 23)
-	variableapec.check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_2=transition_2)
+	Z, z1, up, lo, Te, dens, vary, delta_r = 26, 17, 23, 1, 3e6, 1, 'exc', 0.1
+	new_emiss = variableapec.get_all_new_emiss(Z, z1, up, lo, Te, dens, vary, delta_r)
 
-Specify the range of wavelengths to plot affected emission lines to be 10-50 Angstroms. The default is 10-20 A.
+Check sensitivity of Fe XVII 17->6 line to 3 uncertainties in 17->1 direct exc rate over 4 temperatures at dens= 1e5
 	
 	import variableapec
-	Z, z1, Te, dens, process, delta_r, transition = 26, 17, 3e6, 1, 'A', 0.1, (1,23)
-	variableapec.check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, wavelen=(10, 50))
+	Z, z1, up, lo, vary, errors, trans_list, temps, dens=5 = 26, 17, 17, 6, 'exc', [0.1, 0.2, 0.3], [(17,1)], [136,2e6,3e6,4e6,5e6]
+	variableapec.line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, temps=temps, dens=dens)
 	
-Specify the range of temperatures and densities to run line diagnostics on. Default temperature range is (Te/10, Te * 10) and default density range is (10, 1e17). 
-	
-	import variableapec
-	Z, z1, Te, dens, process, delta_r, transition = 26, 17, 3e6, 1, 'A', 0.1, (1,23)
-	variableapec.check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, wavelen=(10, 50), Te_range=(4e5, 10e8), 		dens_range=(10e12, 10e25))
-	
-Check sensitivity for multiple lines individually with 20% change in direct excitation rate.
+Run line diagnostics for O VII 2-> 1 transition (no plotting) for 8 densities over default range with 10% uncertainty on A value. 
 	
 	import variableapec
-	Z, z1, Te, dens, process, delta_r = 26, 17, 3e6, 1, 'exc', 0.2
-	list=[(1,23) (1,27), (1,25)]
-	variableapec.wrapper_check_sensitivity(Z, z1, Te, dens, process, delta_r, list)
-	
-Calculate G or R ratio with 10% uncertainty on direct excitation rate.
-	
-	import variableapec
-	Z, z1, Te, dens, process, delta_r = 8, 7, 1e6, 1, 'exc', 0.1
-	variableapec.four_line_diagnostic(Z, z1, Te, dens, process, delta_r)
-	variableapec.g_ratio(Z, z1, process)
-	variableapec.r_ratio(Z, z1, process)
-	
-Plot the sensitive emission lines of multiple transitions of an ion.
-	
-	import variableapec
-	Z, z1, Te, dens, delta_r = 26, 17, 3e6, 1, 0.1
-	A_lines = {'3C':(27,1), '3D':(23,1), '3E': (17,1), 'M2': (2,1), '3G':(3,1), '3F':(5,1)}
-	exc_lines = {'3C':(1,27), '3D':(1,23), '3E': (1,17), 'M2': (1,2), '3G':(1,3), '3F':(1,5)}
-	variableapec.plot_multiple_sensitivity(Z, z1, Te, dens, delta_r, A_lines, exc_lines)
+	Z, z1, up, lo, Te, dens, vary, delta_r, dens_range = 8, 7, 2, 1, 3e6, 1, 'A', 0.1, -1
+	line_ratios = variableapec.line_diagnostics(Z, z1, up, lo, Te, dens, vary, delta_r, dens_range=dens_range, num=8, plot=False)
 
+Run and plot line ratio diganostics for Fe XVII 3C/3D (27->1/23->1) ratio with 10% uncertainty on direct excitation rates for 10 temperatures over default temperature range. ***Specify {} or -1 for default dens and Te ranges, only provide input for either Te_range or dens_range if you want temperature or density diagnostics (default is both).***
+
+	import variableapec
+	Z, z1, up, lo, up2, lo2, Te, dens, vary, delta_r, Te_range = 26, 17, 27, 1, 23, 1, 3e6, 1, 'exc', 0.10, -1
+	line_ratios = variableapec.line_ratio_diagnostics(Z, z1, 27, 1, 23, 1, Te, dens, vary, delta_r, Te_range=Te_range, num=10, plot=True)
 	
+Calculate and plot O VII G ratio with 10% uncertainty on direct excitation rate over 10 temperatures between 1e6-3e6K.
 	
-Output:
-=========
-If successfully run, check_sensitivity() will print table of lines affected sorted by the significance of the change in emissivity. This table has columns of the original emissivity values and several partial derivatives in emissivity. The routine will also produce a scatter plot of any lines sensitive to the parameter(s) changed (see documentation for default values), a plot of emissivity as a function of density, and a plot of emissivity as a function of temperature. If two transitions are specified, the routine will produce these plots for each transition individually but also plot the line ratio as a function of density and temperature. A plot of emissivity from ionization, excitation, and recombination versus temperature will be produced for the specified transition to show the temperatures that excitation dominates. 
+	import variableapec
+	Z, z1, Te, dens, vary, delta_r, Te_range, num = 8, 7, 1e6, 1, 'exc', 0.1, (1e6,3e6), 10
+	g_ratio = variableapec.g_ratio(Z, z1, Te, dens, vary, delta_r, Te_range=Te_range, num=num, need_data=True, plot=True)
+	
+Calculate Fe XXV R ratio (no plot) with 10% uncertainty on A value over 5 densities between (1, 1e16).
+	
+	import variableapec
+	Z, z1, Te, dens, vary, delta_r, dens_range, num = 26, 25, 1e6, 1, 'A', 0.1, (1,1e16), 5
+	r_ratio = variableapec.r_ratio(Z, z1, Te, dens, vary, delta_r, dens_range=dens_range, num=num, need_data=True, plot=False)
 
 Future Plans/Potential:
 =================

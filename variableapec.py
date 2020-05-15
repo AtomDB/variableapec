@@ -3190,16 +3190,18 @@ def line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, temps={}, dens=1):
     """ Calculates fractional change in emissivity dE/E for
     specified Z (element), z1 (ion charge+1), up, lo line.
     Vary either 'exc' or 'A' for each transition in trans_list
-    by each error in errors. If Te and dens not specified,
-    calculates at peak Te for ion and low density.
-    trans_list : list
+    by each error in errors. Default density is 1 and default
+    temps are temps where Z, z1 ionic fraction is 1%, 10%, peak,
+    back down to 10% and 1%. Temps can be 'peak' for just the peak
+    temperature or a single value.
+    trans_list : list of transitions to vary
     vary : str
-    errors : list
+    errors : list of delta_r's
     """
 
     if temps == 'peak': temps = [variableapec.find_peak_Te]
     if isinstace(temps, int) or isinstance(temps, float): temps = [temps]
-    elif temps == {}: temps = test.temps_of_interest(Z, z1, numpy.logspace(4,9,1251))
+    elif temps == {}: temps = temps_of_interest(Z, z1, numpy.logspace(4,9,1251))
 
     element = pyatomdb.atomic.Ztoelsymb(Z)
     ion = pyatomdb.atomic.int_to_roman(z1)

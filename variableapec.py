@@ -1533,8 +1533,7 @@ def find_temp_change(Z, z1, frac, delta_r):
   # Change ionization
   varyir = 'i'
 
-  import test
-  eqpopn, pospopn, negpopn = test.get_new_popns(Telist, Z, z1, varyir, delta_r)
+  eqpopn, pospopn, negpopn = get_new_popns(Telist, Z, z1, varyir, delta_r)
 
   # find peak temperatures
   peak = numpy.max(eqpopn[:, z1_test - 1])
@@ -1573,7 +1572,7 @@ def find_temp_change(Z, z1, frac, delta_r):
 
   # Change recombination
   varyir = 'r'
-  eqpopn, pospopn, negpopn = test.get_new_popns(Telist, Z, z1, varyir, delta_r)
+  eqpopn, pospopn, negpopn = get_new_popns(Telist, Z, z1, varyir, delta_r)
 
   # find peak temperatures
   peak = numpy.max(eqpopn[:, z1_test - 1])
@@ -2988,7 +2987,7 @@ def get_ionfrac(Z, Te, delta_r, varyir=False, Teunit='K', z1=[]):
         print("Must specify z1 to change rate for, exiting.")
         exit()
     else:
-        avg, low, high = test.get_new_popns(Z, Telist, delta_r, vary=varyir)
+        avg, low, high = get_new_popns(Z, Telist, delta_r, vary=varyir)
 
     #check what temperature
     if isinstance(Te, int): Te = [Te]
@@ -3185,6 +3184,32 @@ def find_abund_change(Z, Te, delta_r, vary, z1={}, unit='K'):
 
     if z1 == {}: return abund_change
     else: return abund_change[:, z1-1]
+
+def temps_of_interest(Z, z1, Telist):
+    """Returns dict of temperatures in K and labels of where ion is at
+    1%, 10%, peak fractional abundance, and back down to 10% and 1%."""
+
+    z1_test = z1
+    ionlist = numpy.zeros([len(Telist), Z])
+    reclist = numpy.zeros([len(Telist), Z])
+
+    # get orig rates
+    for z1 in range(1, Z + 1):
+        iontmp, rectmp = pyatomdb.atomdb.get_ionrec_rate(Telist, False, Z=Z, z1=z1, extrap=True)
+
+        ionlist[:, z1 - 1] = iontmp
+        reclist[:, z1 - 1] = rectmp
+    eqpopn = solve_ionrec(Telist, ionlist, reclist, Z)
+
+    fracs = [1e-2, 0.1]
+    peak = numpy.argmax(eqpopn[:, z1_test - 1])
+    increasing_temps = numpy.interp(fracs, eqpopn[:peak, z1_test - 1], Telist[:peak])
+    decreasing_temps = numpy.interp(fracs, eqpopn[peak:, z1_test - 1][::-1], Telist[peak:][::-1])
+    temp_bins = numpy.array([increasing_temps[0], increasing_temps[1], Telist[peak], decreasing_temps[1], decreasing_temps[0]])
+
+    #ret = {'temps': temp_bins, 'labels': ['1%', '10%', 'peak', '10%', '1%']}
+    return temp_bins
+
 
 def line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, temps={}, dens=1):
     """ Calculates fractional change in emissivity dE/E for

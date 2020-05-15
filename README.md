@@ -50,7 +50,7 @@ Calculate Fe XXV R ratio (no plot) with 10% uncertainty on A value over 5 densit
 	
 	import variableapec
 	Z, z1, Te, dens, vary, delta_r, dens_range, num = 26, 25, 1e6, 1, 'A', 0.1, (1,1e16), 5
-	r_ratio = variableapec.g_ratio(Z, z1, Te, dens, vary, delta_r, dens_range=dens_range, num=num, need_data=True, plot=False)
+	r_ratio = variableapec.r_ratio(Z, z1, Te, dens, vary, delta_r, dens_range=dens_range, num=num, need_data=True, plot=False)
 
 Future Plans/Potential:
 =================

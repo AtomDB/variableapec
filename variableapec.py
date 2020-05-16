@@ -9,7 +9,7 @@ PyAtomdB and Python 3."""
 import matplotlib.pyplot as plt, matplotlib.ticker as mtick, scipy.stats as stats, \
 pyatomdb, numpy, pickle, pathlib, csv, os, errno, hashlib, requests, urllib.request, \
 urllib.parse, urllib.error, time, subprocess, shutil, wget, glob, datetime, ftplib, \
-pathlib, collections, operator, requests, matplotlib.pylab as pylab
+pathlib, collections, operator, requests, matplotlib.pylab as pylab, glob, math
 from io import StringIO
 from astropy.io import fits
 from astropy.table import Table, Column
@@ -4089,3 +4089,238 @@ def find_CSD_change(Z, z1, delta_r, Te={}, frac={}, varyir={}, datacache={}, pri
     else:
         print("Fractional change in abundances:", percent_change_abund, "\nFractional change in temperatures:", percent_change_Te)
         return percent_change_Te, percent_change_abund
+
+def get_new_popns(Telist, Z, z1_test, varyir, delta_r):
+    factor = delta_r
+    ionlist = numpy.zeros([len(Telist), Z])
+    reclist = numpy.zeros([len(Telist), Z])
+
+    # get the rates
+    for z1 in range(1, Z + 1):
+        iontmp, rectmp = pyatomdb.atomdb.get_ionrec_rate(Telist, False, Z=Z, z1=z1, extrap=True)
+
+        ionlist[:, z1 - 1] = iontmp
+        reclist[:, z1 - 1] = rectmp
+    eqpopn = solve_ionrec(Telist, ionlist, reclist, Z)
+
+    # copy this rates
+    iontmp = ionlist * 1.0
+    rectmp = reclist * 1.0
+
+    # multiply rates by + factor
+    if varyir.lower() == 'r':
+        rectmp[:, z1_test - 1] *= (1 + factor)
+    elif varyir.lower() == 'i':
+        iontmp[:, z1_test - 1] *= (1 + factor)
+    pospopn = solve_ionrec(Telist, iontmp, rectmp, Z)
+
+    # here I am introducing a division to get you back to the original value before we start again
+    if varyir.lower() == 'r':
+        rectmp[:, z1_test - 1] /= (1 + factor)
+        rectmp[:, z1_test - 1] *= (1 - factor)
+    elif varyir.lower() == 'i':
+        iontmp[:, z1_test - 1] /= (1 + factor)
+        iontmp[:, z1_test - 1] *= (1 - factor)
+    negpopn = solve_ionrec(Telist, iontmp, rectmp, Z)
+
+    return eqpopn, pospopn, negpopn
+
+def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
+    """ Generates error analysis PDF of CSD and emissivity errors
+    for Z, z1 and transition (up, lo) at Te in K. Delta_r is
+    fractional error, i.e. 0.1 for 10%. Filename is output filename
+    in the form of 'O7analysis.tex' and will generate a pdf from that.
+    If filename has spaces, will replace spaces with underscores _."""
+
+    if filename == {}: filename = 'ErrorAnalysis.tex'
+    if '' in filename:
+        filename = filename.split()
+        filename = '_'.join(filename)
+    element = pyatomdb.atomic.Ztoelsymb(Z)
+    ion = pyatomdb.atomic.int_to_roman(z1)
+    name = element + ' ' + ion
+    d, dir = {}, os.environ['ATOMDB'] + '/APED/' + element.lower() + '/' + element.lower() + '_' + str(z1) + '/'
+
+    # get LV data
+    lvdata = pyatomdb.atomdb.get_data(Z, z1, 'LV', datacache=d)
+    lvdata = lvdata[1].data
+    up_config, lo_config = lvdata['ELEC_CONFIG'][up - 1], lvdata['ELEC_CONFIG'][lo - 1]
+
+    # get emissivity and multiply by elemental abundance
+    kT = Te / 11604525.0061657  # temp in keV
+    ab = pyatomdb.atomdb.get_abundance()[Z]  # abundance of element Z
+    s = pyatomdb.spectrum.NEISession(elements=[Z])
+    tau = 1e13  # leave fixed
+    ret = s.return_line_emissivity(kT, tau, Z, z1, up, lo, init_pop=kT)
+    emiss = ret['epsilon']  # already abundance corrected
+
+    # get A values
+    ladat = pyatomdb.atomdb.get_data(Z, z1, 'LA', datacache=d)
+    in_range = ladat[1].data
+    cascades, cascade_emiss = {}, 0
+    lev_pop = calc_lev_pop(Z, z1, Te, dens, Teunit='K', datacache=d)
+    for x in in_range:
+        if (x['UPPER_LEV'], x['LOWER_LEV']) == (up, lo):
+            lambda_obs, lambda_theory = x['WAVE_OBS'], x['WAVELEN']
+            ref_obs, ref_theory = x['WV_OBS_REF'], x['WAVE_REF']
+            A_val, A_ref = x['EINSTEIN_A'], x['EIN_A_REF']
+        # get any cascade data
+        if x['LOWER_LEV'] == up:
+            epsilon = (x['EINSTEIN_A'] * lev_pop[x['UPPER_LEV'] - 1]) * ab
+            percent = round((epsilon / emiss) * 100, 2)
+            cascade_emiss += epsilon
+            if percent > 1:
+                cascades.update(
+                    {str(x['UPPER_LEV']) + '$\\rightarrow$' + str(x['LOWER_LEV']): str(percent) + '\\%'})
+    print("Total cascade emission is", cascade_emiss, "compared to full emiss", emiss)
+
+    # check if references are bibcodes or just text
+    citations, refs = {'obs': '', 'theory': '', 'A': ''}, [ref_obs, ref_theory, A_ref]
+    for x, y in zip(refs, list(citations.keys())):
+        if " " not in x:
+            citations[y] = '\\href{https://ui.adsabs.harvard.edu/abs/' + x + '/abstract}{' + x + '})'
+        else:
+            citations[y] = x
+
+    # compare emiss to peak line emissivity
+    kTlist = numpy.linspace(kT / 10, kT * 10, 51)  # list of temperatures to look at
+    ldata = s.return_line_emissivity(kTlist, tau, Z, z1, up, lo)
+    peak_emiss = 0
+    for i in range(len(kTlist)):
+        while ldata['epsilon'][i] > peak_emiss:
+            peak_emiss = ldata['epsilon'][i]
+
+    if emiss < peak_emiss:
+        compare_emiss = 'below'
+    elif emiss > peak_emiss:
+        compare_emiss = 'above'
+    elif emiss == peak_emiss:
+        compare_emiss = 'at'
+
+    # CSD uncertainty
+    pop_fraction = pyatomdb.apec.solve_ionbal_eigen(Z, Te, teunit='K', datacache=d)
+    ions = [z1 - 1, z1, z1 + 1]
+    str_ions = [element + '$^{+' + str(x - 1) + '}$' for x in ions]
+    list_ions = '[' + str_ions[0] + ', ' + str_ions[1] + ', ' + str_ions[2] + ']'
+    CSD = [round(pop_fraction[x - 1], 3) for x in ions]  # get ion frac
+    CSD_errors = find_CSD_change(Z, ions, delta_r, Te=Te, datacache=d, printout=False)  # MC
+    CSD_errors = [round(x, 3) for x in CSD_errors]
+    flux_per_ion_stage = [round((emiss * x) / emiss, 3) for x in CSD]
+
+    # get emissivities from excitation, ionization, recombination
+    init, final, rates = pyatomdb.apec.gather_rates(Z, z1, Te, dens, do_la=False, \
+                                                    do_ec=True, do_ir=False, do_pc=False, do_ai=False, datacache=d)
+    exc_index = ((final == up - 1) & (init != up - 1))
+    init, final, rates = init[exc_index], final[exc_index], rates[exc_index]
+    rates *= lev_pop[init] * ab * pop_fraction[z1 - 1]
+    igood = numpy.where(rates > 0.01 * sum(rates))[0]
+    print("List of significant sources of excitation. Probably only ground state in most cases. \n")
+    for iigood in igood:
+        print(
+            'EXC %i -> %i : %e %f%%' % (init[iigood], final[iigood], rates[iigood], rates[iigood] * 100. / sum(rates)))
+    exc_emiss = sum(rates)
+
+    i_linelist = ionize(Z, z1, Te, dens, in_range, pop_fraction, datacache=d)
+    r_linelist = recombine(Z, z1, Te, dens, in_range, pop_fraction, datacache=d)
+    for x, y in zip(i_linelist, r_linelist):
+        if (x['lambda'] == lambda_theory) or (x['lambda'] == lambda_obs):
+            ionize_emiss = x['epsilon'] * ab
+        if (y['lambda'] == lambda_theory) or (y['lambda'] == lambda_obs):
+            recomb_emiss = y['epsilon'] * ab
+
+    # get energies and flux uncertainty
+    ionization_energy = pyatomdb.atomdb.get_ionpot(Z, z1, datacache=d)
+    ionization_energy /= 1000  # in keV
+
+    excitation_energy = (12.398 / lambda_obs) * 1000  # in eV
+    if kT < excitation_energy: compare_exc = 'below'
+    if kT > excitation_energy: compare_exc = 'above'
+    if kT == excitation_energy: compare_exc = 'at'
+
+    # check for DR sats within 2.5 eV with epsilon > 1e-20
+    DR_list, blend_flux = {}, 0
+    a, b = pyatomdb.apec.calc_satellite(Z, z1 - 1, Te)
+    en = 12.398425 / lambda_obs
+    emin, emax = en - 0.0025, en + 0.0025
+    wvmin, wvmax = 12.398425 / emax, 12.398425 / emin
+    a = a[(a['lambda'] >= wvmin) & (a['lambda'] <= wvmax)]  # filter for energy range
+    a['epsilon'] *= ab  # should also multiply by ion frac here, don't know
+    a = a[a['epsilon'] > 1e-20]
+    blend_flux = sum(a['epsilon'])
+    new = sum(a['epsilon']) * pop_fraction[z1 - 1]
+    print("Comparing sum", blend_flux, "and sum*pop fraction", new)
+    DR_list.update({str(len(a)): element + ' ' + pyatomdb.atomic.int_to_roman(z1)})
+
+    # error propagation (sum in quadrature)
+    final_error = math.sqrt(
+        (delta_r * (exc_emiss / emiss)) ** 2 + (CSD_errors[0]) ** 2 + (CSD_errors[1]) ** 2 + (CSD_errors[2]) ** 2)
+
+    # write to tex file
+    title = 'Uncertainty Analysis for ' + name + ' ' + str(up) + '$\\rightarrow$' + str(lo) + ' at ' + '%.2E' % Decimal(
+        Te) + ' K \\'
+    with open(filename, 'w') as file:
+        file.write('\\documentclass[11pt]{article}\n\n')
+        file.write('\\usepackage{hyperref}\n\n')
+        file.write('\\begin{document}\n\n')
+        file.write('\\begin{center}\n{\Large ' + title + '\n\\large ')
+        file.write('AtomDB v3.0.9; pyAtomDB error analysis v0.1}\n')
+        file.write('\\end{center}\n\n')
+
+        file.write('\\noindent \\begin{tabular}{lll}\n')
+        file.write('\\hline Transition & ' + str(up_config) + ' $\\rightarrow$ ' + str(lo_config) + ' & \\\ \n')
+        file.write('$\\lambda_{\\rm obs}$ & ' + str(lambda_obs) + ' \\AA & ' + citations['obs'] + ' \\\ \n')
+        file.write('$\\lambda_{\\rm th}$ & ' + str(lambda_theory) + ' \\AA & ' + citations['theory'] + ' \\\ \n')
+        file.write('Einstein A & ' + '%.2E' % Decimal(float(A_val)) + ' s$^{-1}$ & ' + citations['A'] + ' \\\ \n')
+        file.write('$\Lambda$(' + '%.2E' % Decimal(Te) + 'K) & ' + '%.3E' % Decimal(
+            emiss) + ' ph cm$^3$ s$^{-1}$ & \\\ \\hline \n')
+        file.write('\\end{tabular}\n\n')
+
+        file.write('\\vskip 0.2in \n')
+        file.write('\\noindent{\\bf Flux uncertainty} \n')
+        file.write('\\vskip 0.1in \n')
+        file.write(
+            '\\noindent The temperature is ' + compare_emiss + ' the peak line emissivity, and the plasma temperature (' + str(
+                round(kT, 3)) + ' keV) ')
+        file.write('is ' + compare_exc + ' the excitation energy (' + str(round(excitation_energy / 1000, 3)) + ' keV) ')
+        file.write('and the ' + element + '$^{+' + str(z1 - 1) + '}$ ionization energy (' + str(
+            round(ionization_energy, 3)) + ' keV). ')
+        file.write('Excitations will be dominated by hard-to-calculate resonances (see XXX). \n')
+
+        file.write('\\vskip 0.1in \n')
+        file.write('\\noindent Flux per ion stage: ' + list_ions + ' = ' + str(flux_per_ion_stage) + '\\\ \n')
+        file.write('\\noindent Charge state distribution: ' + list_ions + ' = ' + str(CSD) + '\\\ \n')
+        file.write('\\noindent Estimated CSD errors: ' + list_ions + ' = ' + str(CSD_errors) + ' (see XXX) \\\ \n')
+        file.write('\\vskip 0.1in \n')
+
+        file.write('\\noindent Detailed breakdown: \\\ \n')
+        file.write('\\noindent \\begin{tabular}{lll} \n')
+        file.write('\\hline Direct Excitation & & ' + str(round((exc_emiss / emiss) * 100, 2)) + '\\% \\\ \n')
+
+        for key, val in cascades.items():
+            file.write('Cascade & ' + key + ' & ' + val + '\\\ \n')
+
+        file.write('Ionization & & ' + str(round((ionize_emiss / emiss) * 100, 2)) + '\\% \\\ \n')
+        file.write('Recombination & & ' + str(round((recomb_emiss / emiss) * 100, 2)) + '\\% \\\ \\hline \n')
+        file.write('\\end{tabular} \n')
+
+        file.write('\\vskip 0.1in \n')
+        file.write('For maximum rate uncertainty of $\\Delta$R = ' + str(delta_r) + ', estimated total error: ' + str(round(final_error * 100, 2)) + '\\% \\\ \n')
+        file.write('\\indent ** {\\it Error is approximated by summing individual errors in quadrature.} \\\ \n')
+        file.write('\\vskip 0.2in\n')
+
+        if len(DR_list) > 0:
+            file.write('\\noindent{\\bf Line blends within $\\pm$2.5eV} \n')
+            file.write('\\vskip 0.1in \n')
+            for key, val in DR_list.items():
+                file.write('\\indent ' + key + ' DR satellites: ' + val + '\\\ \n')
+            file.write(
+                '\\indent Total blend flux: ' + str(round((blend_flux / emiss) * 100, 2)) + '\\% (' + '%.2E' % Decimal(
+                    blend_flux) + ' ph cm$^3$ s$^{-1}$) \\\ \n')
+            file.write(
+                '\\indent DR lines have highly uncertain fluxes in general; 300\\% in some cases.  $\lambda$\ also uncertain.  Need to compare to Badnell for totals. \\\ \n')
+        else:
+            file.write('\\noindent{\\bf No DR satellites within $\\pm$2.5eV} \n')
+
+        file.write('\\end{document}')
+
+    os.system("pdflatex " + filename)

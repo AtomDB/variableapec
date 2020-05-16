@@ -4129,13 +4129,15 @@ def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
     """ Generates error analysis PDF of CSD and emissivity errors
     for Z, z1 and transition (up, lo) at Te in K. Delta_r is
     fractional error, i.e. 0.1 for 10%. Filename is output filename
-    in the form of 'O7analysis.tex' and will generate a pdf from that.
-    If filename has spaces, will replace spaces with underscores _."""
+    in the form of 'O7analysis' and will generate a pdf from that.
+    If filename has spaces, will replace spaces with underscores _
+    i.e. filename 'O 7 analysis' will generate O_7_analysis.pdf """
 
     if filename == {}: filename = 'ErrorAnalysis.tex'
     if '' in filename:
         filename = filename.split()
         filename = '_'.join(filename)
+        filename += '.tex'
     element = pyatomdb.atomic.Ztoelsymb(Z)
     ion = pyatomdb.atomic.int_to_roman(z1)
     name = element + ' ' + ion

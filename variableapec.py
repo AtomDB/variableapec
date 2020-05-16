@@ -4133,11 +4133,11 @@ def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
     If filename has spaces, will replace spaces with underscores _
     i.e. filename 'O 7 analysis' will generate O_7_analysis.pdf """
 
-    if filename == {}: filename = 'ErrorAnalysis.tex'
+    if filename == {}: filename = 'ErrorAnalysis'
     if '' in filename:
         filename = filename.split()
         filename = '_'.join(filename)
-        filename += '.tex'
+    filename += '.tex'
     element = pyatomdb.atomic.Ztoelsymb(Z)
     ion = pyatomdb.atomic.int_to_roman(z1)
     name = element + ' ' + ion

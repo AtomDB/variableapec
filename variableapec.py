@@ -1799,12 +1799,6 @@ def monte_carlo_csd(Z, max_error, runs, makefiles=False, plot=False):
     element = pyatomdb.atomic.Ztoelsymb(Z)
     clist = get_cmap(Z+2)
 
-    #set up plot
-    fig = plt.figure()
-    ax = plt.subplot(111)
-    ax.set_xlabel('Log T(K)', fontsize=12)
-    ax.set_ylabel('Ion Fraction', fontsize=12)
-
     ionlist = numpy.zeros([len(Telist), Z])
     reclist = numpy.zeros([len(Telist), Z])
     for z1 in range(1, Z + 1):
@@ -1855,10 +1849,13 @@ def monte_carlo_csd(Z, max_error, runs, makefiles=False, plot=False):
             max[i, z1-1] = pop_list[max_index]
 
     if plot == True:
+        # set up plot
+        fig, ax = plt.subplots()
+        ax.set_xlabel('Temperature in K', fontsize=12)
+        ax.set_ylabel('Ion Fraction', fontsize=12)
         for z1 in range(1, Z+2):
             ax.semilogx(Telist, median[:, z1-1], color=clist(z1-1), linestyle='-')
             ax.fill_between(Telist, min[:, z1-1], max[:, z1-1], color = clist(z1-1), alpha=0.4)
-
         fig.suptitle('CSD with Monte Carlo error between +/-'+str(max_error*100)+'%')
         plt.savefig(element+' '+str(max_error*100)+'% Monte Carlo CSD.pdf')
         plt.show()
@@ -4137,7 +4134,6 @@ def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
     if '' in filename:
         filename = filename.split()
         filename = '_'.join(filename)
-    filename += '.tex'
     element = pyatomdb.atomic.Ztoelsymb(Z)
     ion = pyatomdb.atomic.int_to_roman(z1)
     name = element + ' ' + ion
@@ -4253,14 +4249,12 @@ def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
     print("Comparing sum", blend_flux, "and sum*pop fraction", new)
     DR_list.update({str(len(a)): element + ' ' + pyatomdb.atomic.int_to_roman(z1)})
 
-    # error propagation (sum in quadrature)
-    final_error = math.sqrt(
-        (delta_r * (exc_emiss / emiss)) ** 2 + (CSD_errors[0]) ** 2 + (CSD_errors[1]) ** 2 + (CSD_errors[2]) ** 2)
-
+    # error propagation (sum CSD errors in quadrature)
+    final_error = math.sqrt(CSD_errors[0] ** 2 + CSD_errors[1] ** 2 + CSD_errors[2] ** 2)
+    print("\nFinal error is", final_error)
     # write to tex file
-    title = 'Uncertainty Analysis for ' + name + ' ' + str(up) + '$\\rightarrow$' + str(lo) + ' at ' + '%.2E' % Decimal(
-        Te) + ' K \\'
-    with open(filename, 'w') as file:
+    title = 'Uncertainty Analysis for ' + name + ' ' + str(up) + '$\\rightarrow$' + str(lo) + ' at ' + '%.2E' % Decimal(Te) + ' K \\'
+    with open(filename+'.tex', 'w') as file:
         file.write('\\documentclass[11pt]{article}\n\n')
         file.write('\\usepackage{hyperref}\n\n')
         file.write('\\begin{document}\n\n')
@@ -4306,7 +4300,7 @@ def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
         file.write('\\end{tabular} \n')
 
         file.write('\\vskip 0.1in \n')
-        file.write('For maximum rate uncertainty of $\\Delta$R = ' + str(delta_r) + ', estimated total error: ' + str(round(final_error * 100, 2)) + '\\% \\\ \n')
+        file.write('For max rate uncertainty of $\\Delta$R = ' + str(delta_r) + ', estimated total error: ' + str(round(final_error * 100, 2)) + '\\% \\\ \n')
         file.write('\\indent ** {\\it Error is approximated by summing individual errors in quadrature.} \\\ \n')
         file.write('\\vskip 0.2in\n')
 
@@ -4325,4 +4319,96 @@ def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
 
         file.write('\\end{document}')
 
-    os.system("pdflatex " + filename)
+    os.system("pdflatex " + filename+'.tex')
+    #remove extra files
+    for ext in ['.log', '.out', '.aux', '.tex']:
+        os.remove(filename+ext)
+    os.remove(filename)
+
+def find_max_error_csd(Z, z1, delta_r):
+    """ Finds temperature where CSD range from +/- delta_r
+    is the largest. Returns dictionary of 'avg abund', 'temp'
+    'CSD error' and 'frac error', where avg abund is the ionic
+     fraction at the temperature, CSD error is the max change
+     in CSD from the Monte Carlo uncertainty perturbation,
+     and frac error is the CSD error as a fractino of avg abund.'"""
+
+    median, min, max = variableapec.monte_carlo_csd(Z, delta_r, 100, makefiles=False, plot=False)
+    Telist = numpy.logspace(4,9,1251)
+    spread, i = 0, 0
+    for x,y in zip(min[:, z1-1], max[:, z1-1]):
+        if y-x >= spread:
+            spread = y-x
+            i+=1
+        else:
+            break
+
+    print("max change in CSD is", spread, "and frac error is", spread/median[i, z1-1], "at temperature", Telist[i])
+    ret = {'avg abund': median[i, z1-1], 'temp': Telist[i], 'CSD error': spread, 'frac error': spread/median[i, z1-1]}
+    print(ret)
+    return ret
+
+def peak_frac_sensitivity(Z, errors, z1_list={}, makefiles=True, plot=True):
+    """ Finds fractional change in ion peak abundances from
+    varying CSD with Gaussian selected random errors using each delta_r
+    from errors as sigma. If z1_list empty, calculates for all ions."""
+
+    Telist, element,  = numpy.logspace(4, 9, 1251), pyatomdb.atomic.Ztoelsymb(Z)
+    ions=[element+' +']+[element+' '+str(z1-1)+'+' for z1 in range(2, Z+2)]
+    if z1_list == {}:
+        z1_list = [z1 for z1 in range(1,Z+2)]
+    clist = get_cmap(Z+2)
+    t = values = Table()
+    t['Ion'] = values['Ion'] = ions
+    temp_fracs = numpy.zeros([len(errors), len(Telist), Z+1])
+
+    counter = 0
+    for max_error in errors:
+        median, min, max = variableapec.monte_carlo_csd(Z, max_error, 100, makefiles=False, plot=False)
+        for z1 in range(1, Z+2):
+            temp_fracs[counter, :, z1-1] = abs((max[:, z1-1]-min[:, z1-1])/median[:, z1-1])
+        percent, numbers_only = [], []
+        for z1 in range(1, Z+2):
+            #find ion abundances at peak abundance
+            peak = numpy.max(median[:, z1 - 1])
+            idx = numpy.argmax(median[:, z1 - 1])
+            min_p = min[idx, z1 - 1]
+            max_p = max[idx, z1 - 1]
+            val = abs((max_p - min_p) / peak)
+            numbers_only.append(val)
+            val = numpy.format_float_positional(val*100, precision=2)
+            percent.append(val+' %')
+
+        t['+/- '+str(max_error*100)+'%'] = percent
+        values['+/- '+str(max_error*100)+'%'] = numbers_only
+        counter+=1
+
+    if plot == True:
+        plt.xlabel('Fractional error')
+        plt.ylabel('Fractional change in peak abundance')
+        plt.title('Ion peak abundance sensitivity to error')
+        for z1 in z1_list:
+            v = [values[col][z1-1] for col in values.colnames[1:]]
+            plt.plot(errors, v, label=ions[z1-1], color=clist(z1-1))
+        plt.legend(fontsize='xx-small', loc='upper left')
+        plt.savefig(element+' peak abund sensitivity.pdf')
+        plt.show()
+        plt.close('all')
+
+    if makefiles == True:
+        for number in range(1, 30):
+            fname = element + ' peak frac changes ' + str(number) + '.csv'
+            file = pathlib.Path(fname)
+            if file.exists():
+                continue
+            else:
+                with open(fname, mode='w') as csv_file:
+                    writer = csv.DictWriter(csv_file, fieldnames = values.colnames)
+                    writer.writeheader()
+                    for row in values:
+                        data = {}
+                        for col in values.colnames:
+                            data.update({col: row[col]})
+                        writer.writerow(data)
+                    writer.writerow({values.colnames[0]:' '})
+                break

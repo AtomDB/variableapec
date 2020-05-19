@@ -1806,7 +1806,6 @@ def monte_carlo_csd(Z, max_error, runs, makefiles=False, plot=False):
 
         ionlist[:, z1 - 1] = iontmp
         reclist[:, z1 - 1] = rectmp
-    eqpopn = solve_ionrec(Telist, ionlist, reclist, Z)
 
     mc_popn = numpy.zeros([runs, Z+1, len(Telist)])
     random_ion = numpy.zeros([len(Telist), Z])
@@ -4157,6 +4156,7 @@ def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
     in_range = ladat[1].data
     cascades, cascade_emiss = {}, 0
     lev_pop = calc_lev_pop(Z, z1, Te, dens, Teunit='K', datacache=d)
+    other_cascades = 0
     for x in in_range:
         if (x['UPPER_LEV'], x['LOWER_LEV']) == (up, lo):
             lambda_obs, lambda_theory = x['WAVE_OBS'], x['WAVELEN']
@@ -4170,6 +4170,10 @@ def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
             if percent > 1:
                 cascades.update(
                     {str(x['UPPER_LEV']) + '$\\rightarrow$' + str(x['LOWER_LEV']): str(percent) + '\\%'})
+            else:
+                other_cascades += epsilon
+    #add other cascades at the end
+    cascades.update({'Other cascades': str(other_cascades)})
     print("Total cascade emission is", cascade_emiss, "compared to full emiss", emiss)
 
     # check if references are bibcodes or just text
@@ -4180,6 +4184,8 @@ def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
         else:
             citations[y] = x
 
+    pop_fraction = pyatomdb.apec.solve_ionbal_eigen(Z, Te, teunit='K', datacache=d)
+
     # compare emiss to peak line emissivity
     kTlist = numpy.linspace(kT / 10, kT * 10, 51)  # list of temperatures to look at
     ldata = s.return_line_emissivity(kTlist, tau, Z, z1, up, lo)
@@ -4188,22 +4194,9 @@ def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
         while ldata['epsilon'][i] > peak_emiss:
             peak_emiss = ldata['epsilon'][i]
 
-    if emiss < peak_emiss:
-        compare_emiss = 'below'
-    elif emiss > peak_emiss:
-        compare_emiss = 'above'
-    elif emiss == peak_emiss:
-        compare_emiss = 'at'
-
-    # CSD uncertainty
-    pop_fraction = pyatomdb.apec.solve_ionbal_eigen(Z, Te, teunit='K', datacache=d)
-    ions = [z1 - 1, z1, z1 + 1]
-    str_ions = [element + '$^{+' + str(x - 1) + '}$' for x in ions]
-    list_ions = '[' + str_ions[0] + ', ' + str_ions[1] + ', ' + str_ions[2] + ']'
-    CSD = [round(pop_fraction[x - 1], 3) for x in ions]  # get ion frac
-    CSD_errors = find_CSD_change(Z, ions, delta_r, Te=Te, datacache=d, printout=False)  # MC
-    CSD_errors = [round(x, 3) for x in CSD_errors]
-    flux_per_ion_stage = [round((emiss * x) / emiss, 3) for x in CSD]
+    if emiss < peak_emiss: compare_emiss = 'below'
+    elif emiss > peak_emiss: compare_emiss = 'above'
+    elif emiss == peak_emiss: compare_emiss = 'at'
 
     # get emissivities from excitation, ionization, recombination
     init, final, rates = pyatomdb.apec.gather_rates(Z, z1, Te, dens, do_la=False, \
@@ -4215,7 +4208,8 @@ def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
     print("List of significant sources of excitation. Probably only ground state in most cases. \n")
     for iigood in igood:
         print(
-            'EXC %i -> %i : %e %f%%' % (init[iigood], final[iigood], rates[iigood], rates[iigood] * 100. / sum(rates)))
+            'EXC %i -> %i : %e %f%%' % (
+            init[iigood], final[iigood], rates[iigood], rates[iigood] * 100. / sum(rates)))
     exc_emiss = sum(rates)
 
     i_linelist = ionize(Z, z1, Te, dens, in_range, pop_fraction, datacache=d)
@@ -4225,6 +4219,16 @@ def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
             ionize_emiss = x['epsilon'] * ab
         if (y['lambda'] == lambda_theory) or (y['lambda'] == lambda_obs):
             recomb_emiss = y['epsilon'] * ab
+
+    # CSD uncertainty
+    ions = [z1 - 1, z1, z1 + 1]
+    str_ions = [element + '$^{+' + str(x - 1) + '}$' for x in ions]
+    list_ions = '[' + str_ions[0] + ', ' + str_ions[1] + ', ' + str_ions[2] + ']'
+    CSD = [round(pop_fraction[x - 1], 4) for x in ions]  # get ion frac
+    CSD_errors = find_CSD_change(Z, ions, delta_r, Te=Te, datacache=d, printout=False)  # MC
+    CSD_errors = [round(x, 2) for x in CSD_errors]
+    flux_per_ion_stage = [round((ionize_emiss/emiss), 2), round((exc_emiss+cascade_emiss),2), round((recomb_emiss/emiss),2)]
+        #[round((emiss * x) / emiss, 2) for x in CSD]
 
     # get energies and flux uncertainty
     ionization_energy = pyatomdb.atomdb.get_ionpot(Z, z1, datacache=d)
@@ -4290,17 +4294,17 @@ def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
 
         file.write('\\noindent Detailed breakdown: \\\ \n')
         file.write('\\noindent \\begin{tabular}{lll} \n')
-        file.write('\\hline Direct Excitation & & ' + str(round((exc_emiss / emiss) * 100, 2)) + '\\% \\\ \n')
+        file.write('\\hline Direct Excitation & & ' + str(round((exc_emiss / emiss) * 100, 3)) + '\\% \\\ \n')
 
         for key, val in cascades.items():
             file.write('Cascade & ' + key + ' & ' + val + '\\\ \n')
 
-        file.write('Ionization & & ' + str(round((ionize_emiss / emiss) * 100, 2)) + '\\% \\\ \n')
-        file.write('Recombination & & ' + str(round((recomb_emiss / emiss) * 100, 2)) + '\\% \\\ \\hline \n')
+        file.write('Ionization & & ' + str(round((ionize_emiss / emiss) * 100, 3)) + '\\% \\\ \n')
+        file.write('Recombination & & ' + str(round((recomb_emiss / emiss) * 100, 3)) + '\\% \\\ \\hline \n')
         file.write('\\end{tabular} \n')
 
         file.write('\\vskip 0.1in \n')
-        file.write('For max rate uncertainty of $\\Delta$R = ' + str(delta_r) + ', estimated total error: ' + str(round(final_error * 100, 2)) + '\\% \\\ \n')
+        file.write('For max rate uncertainty of $\\Delta$R = ' + str(delta_r) + ', estimated total error: ' + str(round(final_error * 100, 3)) + '\\% \\\ \n')
         file.write('\\indent ** {\\it Error is approximated by summing individual errors in quadrature.} \\\ \n')
         file.write('\\vskip 0.2in\n')
 
@@ -4310,7 +4314,7 @@ def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
             for key, val in DR_list.items():
                 file.write('\\indent ' + key + ' DR satellites: ' + val + '\\\ \n')
             file.write(
-                '\\indent Total blend flux: ' + str(round((blend_flux / emiss) * 100, 2)) + '\\% (' + '%.2E' % Decimal(
+                '\\indent Total blend flux: ' + str(round((blend_flux / emiss) * 100, 3)) + '\\% (' + '%.2E' % Decimal(
                     blend_flux) + ' ph cm$^3$ s$^{-1}$) \\\ \n')
             file.write(
                 '\\indent DR lines have highly uncertain fluxes in general; 300\\% in some cases.  $\lambda$\ also uncertain.  Need to compare to Badnell for totals. \\\ \n')
@@ -4323,7 +4327,6 @@ def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
     #remove extra files
     for ext in ['.log', '.out', '.aux', '.tex']:
         os.remove(filename+ext)
-    os.remove(filename)
 
 def find_max_error_csd(Z, z1, delta_r):
     """ Finds temperature where CSD range from +/- delta_r

@@ -555,6 +555,7 @@ def run_line_diagnostics(Z, z1, up, lo, Te, dens, vary, delta_r, Te_range={}, de
     and default dens_range is 10 values over (1, 1e16). Will plot if set to True.
     Default is both temp and dens diagnostics if left blank. Can pick one type and use
     default ranges by setting either Te_range or dens_range = -1."""
+    from timeit import default_timer as timer
 
     #set default values
     if num == {}: temp_num, dens_num = 20, 10
@@ -573,6 +574,7 @@ def run_line_diagnostics(Z, z1, up, lo, Te, dens, vary, delta_r, Te_range={}, de
         type, temperature, density = 'temp', True, False
 
     print("Running", type, "diagnostics")
+    start = timer()
 
     extras = {'process': vary, 'delta_r': delta_r, 'transition': (up, lo), 'transition_2': [], 'npnts': 2,
               'wavelen': (10, 20), 'Te_range': Te_range, 'dens_range': dens_range, 'corrthresh': 10e-5, 'e_signif': 0.0}
@@ -611,21 +613,22 @@ def run_line_diagnostics(Z, z1, up, lo, Te, dens, vary, delta_r, Te_range={}, de
                 dens_new_inputs, dens_new_values = vary_a(dens_inputs, dens_values, (up, lo))
             elif vary == 'exc':
                 extras.update({'transition': (lo, up)})
-                print(extras)
                 dens_inputs, dens_values, transition = set_up(Z, z1, Te, temp_dens, extras=extras)
                 dens_new_inputs, dens_new_values = vary_exc(dens_inputs, dens_values, (lo, up))
             dens_table, dens_new_table, dens_inputs, dens_results = get_tables(dens_new_inputs, dens_new_values)
             for x in dens_table:
                 if (x['Upper'], x['Lower']) == (up, lo):
-                    #for i in [x['Epsilon_orig'], x['Epsilon_1'], x[-1]]: if i==0, i=1e-40
-                    if x['Epsilon_orig'] == 0.0: x['Epsilon_orig'] = 1e-40
-                    if x['Epsilon_1'] == 0.0: x['Epsilon_1'] = 1e-40
-                    if x[-1] == 0.0: x[-1] = 1e-40
+                    for i in [x['Epsilon_orig'], x['Epsilon_1'], x[-1]]:
+                        if i==0: i=1e-40
+                    # if x['Epsilon_orig'] == 0.0: x['Epsilon_orig'] = 1e-40
+                    # if x['Epsilon_1'] == 0.0: x['Epsilon_1'] = 1e-40
+                    # if x[-1] == 0.0: x[-1] = 1e-40
                     dens_eps_orig.append(x['Epsilon_orig'])
                     dens_eps_min.append(x['Epsilon_1'])
                     dens_eps_max.append(x[-1])
             counter += 1
             print(str(dens_num-counter), 'densities left\n')
+    print("Took", (timer() - start)/60, "minutes")
 
     if type == 'temp':
         line_diagnostics = {'type': 'temp', 'temps': list(temp_bins),'orig': list(Te_eps_orig),
@@ -1794,8 +1797,11 @@ def vary_csd(Z, z1, varyir, delta_r):
 
     return ret
 
-def monte_carlo_csd(Z, max_error, runs, makefiles=False, plot=False):
-    Telist = numpy.logspace(4,9,1251)
+def monte_carlo_csd(Z, max_ionize, max_recomb, runs=100, Telist=numpy.logspace(4,9,1251), makefiles=False, plot=False):
+    """ Varies CSD 100 Monte Carlo calculations with a max error on
+    ionization and recombination rates. If need varied eigenfiles,
+    set makefiles=True."""
+
     element = pyatomdb.atomic.Ztoelsymb(Z)
     clist = get_cmap(Z+2)
 
@@ -1811,9 +1817,13 @@ def monte_carlo_csd(Z, max_error, runs, makefiles=False, plot=False):
     random_ion = numpy.zeros([len(Telist), Z])
     random_rec = numpy.zeros([len(Telist), Z])
     for run in range(runs):
-        lower, upper = -2*max_error, 2*max_error
-        mu, sigma = 0, max_error
+        #get random ionization errors
+        lower, upper = -2*max_ionize, 2*max_ionize
+        mu, sigma = 0, max_ionize
         random1 = stats.truncnorm.rvs((lower - mu) / sigma, (upper - mu) / sigma, loc=mu, scale=sigma, size=Z)
+        #get random recombination errors
+        lower, upper = -2 * max_recomb, 2 * max_recomb
+        mu, sigma = 0, max_recomb
         random2 = stats.truncnorm.rvs((lower - mu) / sigma, (upper - mu) / sigma, loc=mu, scale=sigma, size=Z)
         for col in range(Z):
             random_ion[:,col] = random1[col]
@@ -1855,19 +1865,20 @@ def monte_carlo_csd(Z, max_error, runs, makefiles=False, plot=False):
         for z1 in range(1, Z+2):
             ax.semilogx(Telist, median[:, z1-1], color=clist(z1-1), linestyle='-')
             ax.fill_between(Telist, min[:, z1-1], max[:, z1-1], color = clist(z1-1), alpha=0.4)
-        fig.suptitle('CSD with Monte Carlo error between +/-'+str(max_error*100)+'%')
-        plt.savefig(element+' '+str(max_error*100)+'% Monte Carlo CSD.pdf')
+        fig.suptitle('Ionize error between +/-'+str(max_ionize*100)+'% \nRecomb error between' +
+                        '+/-' +str(max_recomb*100)+'%')
+        plt.savefig(element+' Monte Carlo CSD.pdf')
         plt.show()
         plt.close('all')
 
     return median, min, max
 
-def wrapper_monte_carlo_csd(list, errors, runs, makefiles=False, plot=False):
+def wrapper_monte_carlo_csd(list, ionize_errors, recomb_errors, runs, makefiles=False, plot=False):
     """List is [], errors is []"""
 
     for Z in list:
-        for max_error in errors:
-            monte_carlo_csd(Z, max_error, runs, makefiles, plot)
+        for max_ionize, max_recomb in zip(ionize_errors, recomb_errors):
+            monte_carlo_csd(Z, max_ionize, max_recomb, runs, Telist, makefiles, plot)
 
 def get_cmap(n, name='hsv'):
     '''Returns a function that maps each index in 0, 1, ..., n-1 to a distinct
@@ -2975,7 +2986,7 @@ def get_ionfrac(Z, Te, delta_r, varyir=False, Teunit='K', z1=[]):
 
     #check what type of CSD varying
     if varyir == False:
-        avg, low, high = monte_carlo_csd(Z, delta_r, 100, makefiles=False, plot=False)
+        avg, low, high = monte_carlo_csd(Z, max_ionize, max_recomb)
     elif (varyir != False) and (z1 == []):
         print("Must specify z1 to change rate for, exiting.")
         exit()
@@ -3044,14 +3055,19 @@ def get_all_new_emiss(Z, z1, up, lo, Te, dens, vary, delta_r):
     print(new_table)
     return new_table
 
-def get_line_emiss(Z, z1, up, lo, vary, delta_r, Te={}, dens=1):
+def get_line_emiss(Z, z1, up, lo, vary, ionize_delta_r, recomb_delta_r={}, Te={}, dens=1):
+    #don't like this function
     """ Te can be int or list. Returns line emiss values in the following order:
     min, orig, max. If Te input is a list, returns array of length Te.
     Vary can be 'exc' or 'A' to change transition specific rate,
     or 'ir' to change all rate coefficients for Z via Monte Carlo.
-    Default is 51 temperatures from 10e4 to 10e9 and dens = 1."""
+    Default is 51 temperatures from 10e4 to 10e9 and dens = 1.
+    If only want to specify general max error (i.e. not specific to rate),
+    leave recomb_delta_r empty. """
+
     tau, npnts, Telist = 1e13, 2, numpy.logspace(4, 9, 51)
     if Te == {}: Te = Telist
+    if recomb_delta_r == {}: delta_r = ionize_delta_r
 
     #get line emissivity at particular temp
     if isinstance(Te, int):
@@ -3071,7 +3087,7 @@ def get_line_emiss(Z, z1, up, lo, vary, delta_r, Te={}, dens=1):
                 if (a,b) == (up, lo):
                     ret = {'temps': Te, 'orig': c, 'min': d, 'max': e}
         elif vary == 'ir':
-            avg, low, high = monte_carlo_csd(Z, delta_r, 100)
+            avg, low, high = monte_carlo_csd(Z, max_ionize, max_recomb)
         return ret
 
     #get line emissivity as a function of temp:
@@ -3083,9 +3099,9 @@ def get_line_emiss(Z, z1, up, lo, vary, delta_r, Te={}, dens=1):
 
         ret = {'temps': Telist, 'orig': orig, 'min': min, 'max': max}
 
-def get_peak_abund(Z, delta_r, z1=[]):
+def get_peak_abund(Z, delta_ionize, delta_recomb, z1=[]):
     """ Returns dictionary of min, median, max peak abundance values from Monte Carlo CSD"""
-    avg, low, high = monte_carlo_csd(Z, delta_r, 100, makefiles=False, plot=False)
+    avg, low, high = monte_carlo_csd(Z, delta_ionize, delta_recomb)
     median, min, max = numpy.zeros([Z+1]), numpy.zeros([Z+1]), numpy.zeros([Z+1])
     for tmp_z1 in range(1, Z+1):
         peak_idx = numpy.argmax(avg[:, tmp_z1-1])
@@ -3096,9 +3112,9 @@ def get_peak_abund(Z, delta_r, z1=[]):
         ret = {'median': median, 'min': min, 'max': max}
     return ret
 
-def find_max_error_csd(Z, z1, delta_r):     ### Not working
+def find_max_error_csd(Z, z1, delta_ionize, delta_recomb):     ### Not working
     """ Finds temperature where CSD range from +/- delta_r is the largest"""
-    median, min, max = monte_carlo_csd(Z, delta_r, 100, makefiles=False, plot=False)
+    median, min, max = monte_carlo_csd(Z, delta_ionize, delta_recomb)
     Telist = numpy.logspace(4,9,1251)
     percent_error, i = 0,0
 
@@ -3125,7 +3141,7 @@ def find_delta_temp(Z, frac, delta_r, vary='ir', z1={}, unit='K'):
     else: ret = {'unit': unit, 'frac':frac, 'delta_Te':Te_change}
     return ret
 
-def find_new_temp(Z, frac, delta_r, vary='ir', z1={}, unit='K'):
+def find_new_temp(Z, frac, delta_ionize, delta_recomb, vary='ir', z1={}, unit='K'):
     """ Returns dict of orig/median, min, and max temp values at specified
     fractional abundance (as a fraction of peak). To vary 'i' or 'r'
     rate, need to specify z1. To vary all rate coefficients, set vary
@@ -3142,7 +3158,7 @@ def find_new_temp(Z, frac, delta_r, vary='ir', z1={}, unit='K'):
     Telist = numpy.logspace(4,9,51)
     if (vary == 'i') or (vary == 'r'):
         eqpopn, pospopn, negpopn = get_new_popns(Telist, Z, z1, varyir, delta_r)
-    else: eqpopn, pospopn, negpopn = monte_carlo_csd(Z, delta_r)
+    else: eqpopn, pospopn, negpopn = monte_carlo_csd(Z, delta_ionize, delta_recomb)
 
     for i in range(len(frac)):
         for z1 in range(1, Z+1):
@@ -3191,7 +3207,7 @@ def find_new_abund(Z, Te, delta_r, vary, unit='K', z1={}):
 
     elif vary == 'ir':  #Monte Carlo CSD
         median, min, max = numpy.zeros(len(Telist), Z+1), numpy.zeros(len(Telist), Z+1), numpy.zeros(len(Telist), Z+1)
-        avg, low, high = monte_carlo_csd(Z, delta_r)
+        avg, low, high = monte_carlo_csd(Z, delta_ionize, delta_recomb)
         for i in range(len(Te)):
             for z1 in range(1, Z+1):
                 median[i, z1 - 1] = numpy.interp(Te[i], Telist, avg[:, z1-1])
@@ -3912,15 +3928,17 @@ def r_ratio(Z, z1, Te, dens, vary, delta_r, dens_range={}, num={}, need_data=Tru
 
     return {'dens': dens_bins, 'orig': R_orig, 'min': R_min, 'max': R_max}
 
-def find_CSD_change(Z, z1, delta_r, Te={}, frac={}, varyir={}, datacache={}, printout=True):
+def find_CSD_change(Z, z1, delta_ionize, delta_recomb={}, Te={}, frac={}, varyir={}, datacache={}, printout=True):
     """ Find the change in CSD at specified temp or ion fraction.
     Default is applying random error from Gaussian distribution
     to all rates with a maximum error/sigma = delta_r.
-    If varyir= 'i' or 'r', will gives changes for varying i or r rate of only the z1 ion.
+    If varyir= 'i' or 'r', will gives changes for varying i or r
+    rate of only the z1 ion and will use delta_ionize as error on rate.
     Te in K. Frac is abundance as a fraction of peak, i.e. half peak is 0.5.
     z1 can either be an int (single ion) or a list [] of multiple.
     If you don't want the routine to print out the orig and new values,
-    make printout=False.
+    set printout=False. If error is not specific to type of rate coeff
+    (i.e. same error for ionization and recombination), leave delta_recomb empty.
 
     Returns: list of percent_change_Te and/or percent_change_abund
     where percent change is the difference from +/- error as a fraction of original value."""
@@ -4007,7 +4025,7 @@ def find_CSD_change(Z, z1, delta_r, Te={}, frac={}, varyir={}, datacache={}, pri
     #if varyir not specified, monte carlo rates
     else:
         print("\n Varying all rate coefficients for", element, '\n')
-        eqpopn, pospopn, negpopn = monte_carlo_csd(Z, delta_r, 100, makefiles=False, plot=False)
+        eqpopn, pospopn, negpopn = monte_carlo_csd(Z, delta_ionize, delta_recomb)
 
         for z1 in ions:
             # if frac abundance specified, find temp change in new CSD at that fraction
@@ -4046,12 +4064,13 @@ def find_CSD_change(Z, z1, delta_r, Te={}, frac={}, varyir={}, datacache={}, pri
             # if temperature given, find abundance change in new CSD at that temperature
             if Te != {}:
                 # original abundance
-                pop_fraction = pyatomdb.apec.solve_ionbal_eigen(Z, Te, teunit='K', datacache=d)
-                orig = pop_fraction[z1 - 1]
-                next_orig = pop_fraction[z1]
-
+                # pop_fraction = pyatomdb.apec.solve_ionbal_eigen(Z, Te, teunit='K', datacache=d)
+                # orig = pop_fraction[z1 - 1]
+                # next_orig = pop_fraction[z1]
+                orig = numpy.interp(Te, Telist, eqpopn[:, z1-1])
                 min = numpy.interp(Te, Telist, negpopn[:, z1 - 1])
                 max = numpy.interp(Te, Telist, pospopn[:, z1 - 1])
+                print("orig:", orig, "min:", min, "max:", max)
                 next_min = numpy.interp(Te, Telist, negpopn[:, z1])
                 next_max = numpy.interp(Te, Telist, pospopn[:, z1])
 
@@ -4087,6 +4106,8 @@ def find_CSD_change(Z, z1, delta_r, Te={}, frac={}, varyir={}, datacache={}, pri
         return percent_change_Te, percent_change_abund
 
 def get_new_popns(Telist, Z, z1_test, varyir, delta_r):
+    """ Returns equilibrium popn, min, and max from varying single z1
+    rate coefficient."""
     factor = delta_r
     ionlist = numpy.zeros([len(Telist), Z])
     reclist = numpy.zeros([len(Telist), Z])
@@ -4121,14 +4142,19 @@ def get_new_popns(Telist, Z, z1_test, varyir, delta_r):
 
     return eqpopn, pospopn, negpopn
 
-def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
+def error_analysis(Z, z1, up, lo, Te, dens, errors, linewidth=2.5, filename={}):
     """ Generates error analysis PDF of CSD and emissivity errors
-    for Z, z1 and transition (up, lo) at Te in K. Delta_r is
-    fractional error, i.e. 0.1 for 10%. Filename is output filename
-    in the form of 'O7analysis' and will generate a pdf from that.
-    If filename has spaces, will replace spaces with underscores _
-    i.e. filename 'O 7 analysis' will generate O_7_analysis.pdf """
+    for Z, z1 and transition (up, lo) at Te in K. Linewidth is in eV.
+    Errors is a list [] of fractional error, i.e. 0.1 for 10%, errors
+    should contain only one error if error is not sensitive to rate type
+    (ionization or recombination), otherwise errors = [ionize, recomb].
+    If filename for output pdf has spaces, they will be replaced
+    with underscores (_), i.e. 'O 7 analysis' makes O_7_analysis.pdf
+    Default file generated is ErrorAnalysis.pdf"""
 
+    print("Linewidth is", linewidth, "eV")
+    if len(errors) == 1: delta_ionize = delta_recomb = errors[0]
+    elif len(errors) == 2: delta_ionize, delta_recomb = errors[0], errors[1]
     if filename == {}: filename = 'ErrorAnalysis'
     if '' in filename:
         filename = filename.split()
@@ -4160,6 +4186,7 @@ def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
     for x in in_range:
         if (x['UPPER_LEV'], x['LOWER_LEV']) == (up, lo):
             lambda_obs, lambda_theory = x['WAVE_OBS'], x['WAVELEN']
+            print("Lambda obs", lambda_obs, "lambda theory", lambda_theory)
             ref_obs, ref_theory = x['WV_OBS_REF'], x['WAVE_REF']
             A_val, A_ref = x['EINSTEIN_A'], x['EIN_A_REF']
         # get any cascade data
@@ -4172,9 +4199,6 @@ def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
                     {str(x['UPPER_LEV']) + '$\\rightarrow$' + str(x['LOWER_LEV']): str(percent) + '\\%'})
             else:
                 other_cascades += epsilon
-    #add other cascades at the end
-    cascades.update({'Other cascades': str(other_cascades)})
-    print("Total cascade emission is", cascade_emiss, "compared to full emiss", emiss)
 
     # check if references are bibcodes or just text
     citations, refs = {'obs': '', 'theory': '', 'A': ''}, [ref_obs, ref_theory, A_ref]
@@ -4221,43 +4245,98 @@ def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
             recomb_emiss = y['epsilon'] * ab
 
     # CSD uncertainty
-    ions = [z1 - 1, z1, z1 + 1]
+    ions=[]
+    print(pop_fraction)
+    for i in range(1, Z+2):
+        if pop_fraction[i-1] >= 0.001:     #get ions with abund > 0.1%
+            print("For z1=", i, "pop frac", pop_fraction[i-1])
+            ions.append(i)
+
     str_ions = [element + '$^{+' + str(x - 1) + '}$' for x in ions]
-    list_ions = '[' + str_ions[0] + ', ' + str_ions[1] + ', ' + str_ions[2] + ']'
-    CSD = [round(pop_fraction[x - 1], 4) for x in ions]  # get ion frac
-    CSD_errors = find_CSD_change(Z, ions, delta_r, Te=Te, datacache=d, printout=False)  # MC
-    CSD_errors = [round(x, 2) for x in CSD_errors]
-    flux_per_ion_stage = [round((ionize_emiss/emiss), 2), round((exc_emiss+cascade_emiss),2), round((recomb_emiss/emiss),2)]
-        #[round((emiss * x) / emiss, 2) for x in CSD]
+    #list_ions = '[' + str_ions[0] + ', ' + str_ions[1] + ', ' + str_ions[2] + ']'
+    CSD = [round(pop_fraction[x-1]*100,2) for x in ions]
+    CSD_errors = find_CSD_change(Z, ions, delta_ionize, delta_recomb, Te=Te, datacache=d, printout=False)  # MC
+    CSD_errors = [int(round(x*100)) for x in CSD_errors]
+    #flux_per_ion_stage = [round(ionize_emiss/emiss, 2), round((exc_emiss+cascade_emiss)/emiss,2), round(recomb_emiss/emiss,2)]
+
+    #print CSD
+    print("\nIons over 1% abundance are", ions, "compared to", [z1-1, z1, z1+1])
+    print("\nCSD are", CSD)
+    print("\nCSD errors are", CSD_errors)
 
     # get energies and flux uncertainty
     ionization_energy = pyatomdb.atomdb.get_ionpot(Z, z1, datacache=d)
     ionization_energy /= 1000  # in keV
 
-    excitation_energy = (12.398 / lambda_obs) * 1000  # in eV
+    if numpy.isnan(lambda_obs):
+        excitation_energy = (12.398 / lambda_theory) * 1000
+        print("\nCalculating excitation energy with theoretical wavelength.")
+    else:
+        excitation_energy = (12.398 / lambda_obs) * 1000  # in eV
+        print("\nCalculating excitation energy with observational wavelength.")
+
+    print("kT", kT, "and excitation_energy", excitation_energy)
     if kT < excitation_energy: compare_exc = 'below'
-    if kT > excitation_energy: compare_exc = 'above'
-    if kT == excitation_energy: compare_exc = 'at'
+    elif kT > excitation_energy: compare_exc = 'above'
+    elif kT == excitation_energy: compare_exc = 'at'
+
+    if kT < ionization_energy: compare_ionize = 'below'
+    elif kT > ionization_energy: compare_ionize = 'above'
+    elif kT == ionization_energy: compare_ionize = 'at'
 
     # check for DR sats within 2.5 eV with epsilon > 1e-20
-    DR_list, blend_flux = {}, 0
+    DR_list, sat_blend_flux = {}, 0
     a, b = pyatomdb.apec.calc_satellite(Z, z1 - 1, Te)
-    en = 12.398425 / lambda_obs
-    emin, emax = en - 0.0025, en + 0.0025
+    if numpy.isnan(lambda_obs) == False:
+        en = 12.398425 / lambda_obs
+    else:
+        en = 12.398425 / lambda_theory
+    emin, emax = en - (linewidth/1000), en + (linewidth/1000)
     wvmin, wvmax = 12.398425 / emax, 12.398425 / emin
     a = a[(a['lambda'] >= wvmin) & (a['lambda'] <= wvmax)]  # filter for energy range
     a['epsilon'] *= ab  # should also multiply by ion frac here, don't know
     a = a[a['epsilon'] > 1e-20]
-    blend_flux = sum(a['epsilon'])
+    sat_blend_flux = sum(a['epsilon'])
     new = sum(a['epsilon']) * pop_fraction[z1 - 1]
-    print("Comparing sum", blend_flux, "and sum*pop fraction", new)
+    print("Comparing sum", sat_blend_flux, "and sum*pop fraction", new)
     DR_list.update({str(len(a)): element + ' ' + pyatomdb.atomic.int_to_roman(z1)})
 
+    other_lines, total_blend_flux = {}, sat_blend_flux
+    sess = pyatomdb.spectrum.CIESession()
+    #load response file if given:
+    # if (arf != {}) & (rmf != {}):
+    #     sess.set_response(rmf, arf = arf)
+    #     lines = sess.return_linelist(kT, [wvmin, wvmax], apply_aeff=True)
+    # elif (rmf != {}):
+    #     sess.set_response(rmf)
+    #     lines = sess.return_linelist(kT, [wvmin, wvmax], apply_aeff=True)
+    # else:
+    print("calling lines on kT", kT, "wvmin", wvmin, "wvmax", wvmax)
+    lines = sess.return_linelist(kT,[wvmin,wvmax])
+
+    #filter other lines for epsilon > 1% of transition's flux
+    lines['Epsilon'] *= ab
+    lines = lines[lines['Epsilon'] >= 0.01*emiss]
+    print("ADDITIONAL LINES IN THIS LINEWIDTH:", lines)
+    for i in range(len(lines[:7])):
+        if (lines[i]['UpperLev'], lines[i]['LowerLev']) not in zip(a['upperlev'], a['lowerlev']):
+            el, z_1 = pyatomdb.atomic.Ztoelsymb(int(lines[i]['Element'])), pyatomdb.atomic.int_to_roman(int(lines[i]['Ion']))
+            total_blend_flux += lines[i]['Epsilon']
+            if el+' '+z_1 in other_lines:
+                num = other_lines.get(el+' '+z_1)
+                other_lines.update({el+' '+z_1: num+1})
+            else:
+                other_lines.update({el+' '+z_1: 1})
+    print(other_lines)
+
     # error propagation (sum CSD errors in quadrature)
-    final_error = math.sqrt(CSD_errors[0] ** 2 + CSD_errors[1] ** 2 + CSD_errors[2] ** 2)
-    print("\nFinal error is", final_error)
+    #final_error = math.sqrt(CSD_errors[z1-2] ** 2 + CSD_errors[z1-1] ** 2 + CSD_errors[z1] ** 2)
+    #print("\nFinal error is", final_error)
+    final_error = 1000000
+
     # write to tex file
-    title = 'Uncertainty Analysis for ' + name + ' ' + str(up) + '$\\rightarrow$' + str(lo) + ' at ' + '%.2E' % Decimal(Te) + ' K \\'
+    title = 'Uncertainty Analysis for ' + name + ' ' + str(up) + '$\\rightarrow$' + str(lo) + '\n' \
+            + 'at ' + '%.2E' % Decimal(Te) + ' K and ' + '%.1E' % Decimal(dens) + ' cm$^{-3}$ \\'
     with open(filename+'.tex', 'w') as file:
         file.write('\\documentclass[11pt]{article}\n\n')
         file.write('\\usepackage{hyperref}\n\n')
@@ -4268,7 +4347,10 @@ def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
 
         file.write('\\noindent \\begin{tabular}{lll}\n')
         file.write('\\hline Transition & ' + str(up_config) + ' $\\rightarrow$ ' + str(lo_config) + ' & \\\ \n')
-        file.write('$\\lambda_{\\rm obs}$ & ' + str(lambda_obs) + ' \\AA & ' + citations['obs'] + ' \\\ \n')
+
+        if numpy.isnan(lambda_obs) == False:
+            file.write('$\\lambda_{\\rm obs}$ & ' + str(lambda_obs) + ' \\AA & ' + citations['obs'] + ' \\\ \n')
+
         file.write('$\\lambda_{\\rm th}$ & ' + str(lambda_theory) + ' \\AA & ' + citations['theory'] + ' \\\ \n')
         file.write('Einstein A & ' + '%.2E' % Decimal(float(A_val)) + ' s$^{-1}$ & ' + citations['A'] + ' \\\ \n')
         file.write('$\Lambda$(' + '%.2E' % Decimal(Te) + 'K) & ' + '%.3E' % Decimal(
@@ -4281,45 +4363,62 @@ def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
         file.write(
             '\\noindent The temperature is ' + compare_emiss + ' the peak line emissivity, and the plasma temperature (' + str(
                 round(kT, 3)) + ' keV) ')
-        file.write('is ' + compare_exc + ' the excitation energy (' + str(round(excitation_energy / 1000, 3)) + ' keV) ')
-        file.write('and the ' + element + '$^{+' + str(z1 - 1) + '}$ ionization energy (' + str(
+        file.write('is ' + compare_exc + ' the excitation energy (' + str(round(excitation_energy / 1000, 2)) + ' keV) ')
+        file.write('and ' + compare_ionize + ' the ' + element + '$^{+' + str(z1 - 1) + '}$ ionization energy (' + str(
             round(ionization_energy, 3)) + ' keV). ')
         file.write('Excitations will be dominated by hard-to-calculate resonances (see XXX). \n')
 
         file.write('\\vskip 0.1in \n')
-        file.write('\\noindent Flux per ion stage: ' + list_ions + ' = ' + str(flux_per_ion_stage) + '\\\ \n')
-        file.write('\\noindent Charge state distribution: ' + list_ions + ' = ' + str(CSD) + '\\\ \n')
-        file.write('\\noindent Estimated CSD errors: ' + list_ions + ' = ' + str(CSD_errors) + ' (see XXX) \\\ \n')
+        file.write('\\noindent Charge state distribution: \\\ \n')
+        file.write('\\noindent \\begin{tabular}{ll}\n')
+        for ion, frac, error in zip(str_ions, CSD, CSD_errors):
+            file.write(ion + ' & ' + str(frac) + '\\% $\\pm$ ' + str(error/2) + '\\% \\\ \n')
+        file.write('\\end{tabular}\n')
         file.write('\\vskip 0.1in \n')
 
         file.write('\\noindent Detailed breakdown: \\\ \n')
         file.write('\\noindent \\begin{tabular}{lll} \n')
-        file.write('\\hline Direct Excitation & & ' + str(round((exc_emiss / emiss) * 100, 3)) + '\\% \\\ \n')
+        file.write('\\hline Direct Excitation & & ' + str(round((exc_emiss / emiss) * 100, 1)) + '\\% \\\ \n')
 
         for key, val in cascades.items():
             file.write('Cascade & ' + key + ' & ' + val + '\\\ \n')
 
-        file.write('Ionization & & ' + str(round((ionize_emiss / emiss) * 100, 3)) + '\\% \\\ \n')
-        file.write('Recombination & & ' + str(round((recomb_emiss / emiss) * 100, 3)) + '\\% \\\ \\hline \n')
+        file.write('Other cascades & & ' + str(round((other_cascades/emiss)*100, 1)) + '\\% \\\ \n')
+        file.write('Ionization & & ' + str(round((ionize_emiss / emiss) * 100, 1)) + '\\% \\\ \n')
+        file.write('Recombination & & ' + str(round((recomb_emiss / emiss) * 100, 1)) + '\\% \\\ \\hline \n')
         file.write('\\end{tabular} \n')
-
         file.write('\\vskip 0.1in \n')
-        file.write('For max rate uncertainty of $\\Delta$R = ' + str(delta_r) + ', estimated total error: ' + str(round(final_error * 100, 3)) + '\\% \\\ \n')
+
+        if delta_recomb != {}:
+            file.write('Using ionization $\\Delta$R ' + str(delta_ionize*100) + ' and recombination $\\Delta$R '
+            + str(delta_recomb*100) + '\\%, estimated total error is ' + str(round(final_error * 100)) + '\\% \\\ \n')
+        else:
+            file.write('Using max rate uncertainty ' + str(delta_ionize*100) + '\\%, estimated total error is ' + str(
+                round(final_error * 100, 1)) + '\\% \\\ \n')
         file.write('\\indent ** {\\it Error is approximated by summing individual errors in quadrature.} \\\ \n')
-        file.write('\\vskip 0.2in\n')
+        file.write('\\vskip 0.1in\n')
 
         if len(DR_list) > 0:
-            file.write('\\noindent{\\bf Line blends within $\\pm$2.5eV} \n')
+            file.write('\\noindent{\\bf Line blends within $\\pm$ ' + str(linewidth) + 'eV} \n')
             file.write('\\vskip 0.1in \n')
             for key, val in DR_list.items():
                 file.write('\\indent ' + key + ' DR satellites: ' + val + '\\\ \n')
             file.write(
-                '\\indent Total blend flux: ' + str(round((blend_flux / emiss) * 100, 3)) + '\\% (' + '%.2E' % Decimal(
-                    blend_flux) + ' ph cm$^3$ s$^{-1}$) \\\ \n')
-            file.write(
-                '\\indent DR lines have highly uncertain fluxes in general; 300\\% in some cases.  $\lambda$\ also uncertain.  Need to compare to Badnell for totals. \\\ \n')
+                '\\indent Satellite blend flux: ' + str(round((sat_blend_flux / emiss) * 100, 1)) + '\\% (' + '%.2E' % Decimal(
+                    sat_blend_flux) + ' ph cm$^3$ s$^{-1}$) \\\ \n')
         else:
-            file.write('\\noindent{\\bf No DR satellites within $\\pm$2.5eV} \n')
+            file.write('\\noindent{\\bf No DR satellites within $\\pm$ ' + linewidth + 'eV} \n')
+
+        if len(other_lines) > 0:
+            file.write('\\indent Other lines: \\\ \n')
+            for key, val in other_lines.items():
+                file.write('\\indent ' + str(val) + ' lines: ' + key + '\\\ \n')
+            file.write('\\indent Total blended flux: ' + str(round((total_blend_flux/emiss)*100,1)) + '\\% (' + '%.2E' % Decimal(
+                        total_blend_flux) + ' ph cm$^3$ s$^{-1}$) \\\ \n')
+
+        if len(DR_list) > 0:
+            file.write('\\indent Note: DR lines have highly uncertain fluxes in general; 300\\% in some cases. ' +
+                       '$\lambda$\ also uncertain.  Need to compare to Badnell for totals. \\\ \n')
 
         file.write('\\end{document}')
 
@@ -4328,7 +4427,7 @@ def error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename={}):
     for ext in ['.log', '.out', '.aux', '.tex']:
         os.remove(filename+ext)
 
-def find_max_error_csd(Z, z1, delta_r):
+def find_max_error_csd(Z, z1, delta_ionize, delta_recomb={}):
     """ Finds temperature where CSD range from +/- delta_r
     is the largest. Returns dictionary of 'avg abund', 'temp'
     'CSD error' and 'frac error', where avg abund is the ionic
@@ -4336,7 +4435,9 @@ def find_max_error_csd(Z, z1, delta_r):
      in CSD from the Monte Carlo uncertainty perturbation,
      and frac error is the CSD error as a fractino of avg abund.'"""
 
-    median, min, max = variableapec.monte_carlo_csd(Z, delta_r, 100, makefiles=False, plot=False)
+    if delta_recomb == {}: delta_recomb = delta_ionize
+
+    median, min, max = variableapec.monte_carlo_csd(Z, delta_ionize, delta_recomb)
     Telist = numpy.logspace(4,9,1251)
     spread, i = 0, 0
     for x,y in zip(min[:, z1-1], max[:, z1-1]):

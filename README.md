@@ -52,11 +52,11 @@ Calculate Fe XXV R ratio (no plot) with 10% uncertainty on A value over 5 densit
 	Z, z1, Te, dens, vary, delta_r, dens_range, num = 26, 25, 1e6, 1, 'A', 0.1, (1,1e16), 5
 	r_ratio = variableapec.r_ratio(Z, z1, Te, dens, vary, delta_r, dens_range=dens_range, num=num, need_data=True, plot=False)
 
-Generate error analysis PDF for O VI 2->1 transition at 1e6K and dens=1 with max uncertainty of 15% named 'O7.pdf'.
+Generate error analysis PDF for O VI 2->1 transition at 1e6K and dens=1 with max uncertainty of 15% and a linewidth of 5eV for blended lines, output file named 'O7.pdf'.
 
 	import variableapec
 	Z, z1, up, lo, Te, dens, delta_r = 8, 7, 2, 1, 1e6, 1, 0.15
-	variableapec.error_analysis(Z, z1, up, lo, Te, dens, delta_r, filename='O7')
+	variableapec.error_analysis(Z, z1, up, lo, Te, dens, delta_r, linewidth=5, filename='O7')
 	
 Future Plans/Potential:
 =================

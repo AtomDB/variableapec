@@ -90,31 +90,7 @@ def recombine(Z, z1, Te, dens, in_range, pop_fraction, datacache={}, newsettings
 
 def set_up(Z, z1, Te, dens, extras={}):
     
-    """ Uses inputs from check_sensitivity(), see routine for variable definitions as they are same throughout.
-=======
-#Version 0.0, Oct 30, 2019
-#Keri Heuer
-
-
-import matplotlib.pyplot as plt
-import pyatomdb, numpy, pickle
-from astropy.table import Table, Column
-from astropy.io import ascii
-from matplotlib.offsetbox import AnchoredText
-import matplotlib.pylab as pylab
-from decimal import Decimal
-
-def set_up(Z, z1, Te, dens, process, delta_r, transition, transition_2, all_levels, \
-           nlev, npnts, show, wavelen, corrthresh, e_signif):
-    
-    """ Uses inputs from check_sensitivity(), see that subroutine for variable definitions.
->>>>>>> d62ccbc3c5cec6ddf9ffad10769e49c748c5abdf
-    
-    Set_up() gets original rates, radiative collision matrix, level populations, line lists, 
-    and intensities and returns these in a dictionary called values. Creates sensitivity tables.
-    
-    Returns inputs in dictionary called inputs, returns the variable transition."""
-<<<<<<< HEAD
+    """ Uses inputs from check_sensitivity(), see routine for variable definitions as they are same throughout. """
 
     # create data cache
     global d
@@ -129,8 +105,8 @@ def set_up(Z, z1, Te, dens, process, delta_r, transition, transition_2, all_leve
                    
     matrix = numpy.zeros((nlev,nlev))
     B = numpy.zeros(nlev)
+
     #populate full CR matrix by summing rates for all processes
-=======
     
     init, final, rates = pyatomdb.apec.gather_rates(Z, z1, Te, dens, do_la= True, \
                             do_ec=True, do_ir=True, do_pc=True, do_ai=True)
@@ -149,12 +125,11 @@ def set_up(Z, z1, Te, dens, process, delta_r, transition, transition_2, all_leve
     matrix = numpy.zeros((nlev,nlev))
     B = numpy.zeros(nlev)
     #populate matrix by summing rates for all processes
->>>>>>> d62ccbc3c5cec6ddf9ffad10769e49c748c5abdf
+
     for i in range(len(init)):
         x = final[i]
         y = init[i]
         matrix[x][y] += rates[i]
-<<<<<<< HEAD
 
     # find fraction of each ion in plasma to multiply epsilons by
     pop_fraction = pyatomdb.apec.solve_ionbal_eigen(Z, Te, teunit='K', datacache=d)
@@ -209,7 +184,6 @@ def set_up(Z, z1, Te, dens, process, delta_r, transition, transition_2, all_leve
         return inputs, values, transition
 
 def vary_a(inputs, values, which_transition):
-=======
         
     #set up and solve matrix for level populations
     matrix[0][:] = 1.0
@@ -253,28 +227,20 @@ def vary_a(inputs, values, which_transition):
     return inputs, values, transition
 
 def vary_a(inputs, values, transition):
->>>>>>> d62ccbc3c5cec6ddf9ffad10769e49c748c5abdf
     
     """ Inputs and values are dictionaries outputted by set_up() subroutine. Transition is a tuple
-    outputted by set_up() and dictates which transition to vary the A value for by the specified delta_r
-    in inputs.
-    
-    Recalculates the emissivities and updates sensitivity table with these values. Updates the values
-    dictionary with tables.
-    
-    Returns the dictionaries input and values."""
+    outputted by set_up() show which transition to vary the A value for by the specified delta_r
+    in inputs.Recalculates the emissivities and updates sensitivity table with these values. Updates the values
+    dictionary with tables. Returns the dictionaries input and values."""
     
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-<<<<<<< HEAD
     npnts, wavelen, Te_range, dens_range, corrthresh, e_signif = [inputs.get(k) for k in inputs]
-=======
+
     all_levels, nlev, npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
->>>>>>> d62ccbc3c5cec6ddf9ffad10769e49c748c5abdf
     
     matrix, B, in_range, linelist, table, new_table = [values.get(k) for k in values]
     
     print("****************************************************")
-<<<<<<< HEAD
     print("in vary_a for " + str(which_transition) + ", calculating rate for Te=%e and dens=%e" %(Te, dens))
     print("****************************************************")
     
@@ -295,7 +261,8 @@ def vary_a(inputs, values, transition):
     print("old A value =", old_a)
     print("new A values =", new_a)
     q_max, q_min = new_a[-1], new_a[0]
-=======
+
+    print("****************************************************")
     print("in vary_a, calculating rate for Te=%e and dens=%e"%(Te, dens))
     print("****************************************************")
     
@@ -315,13 +282,11 @@ def vary_a(inputs, values, transition):
     print("new A values =", new_a)
     q_max = new_a[-1]
     q_min = new_a[0]
->>>>>>> d62ccbc3c5cec6ddf9ffad10769e49c748c5abdf
         
     index=1
     for x in new_a:
         #update LA data for specified transition
         in_range['EINSTEIN_A'][a_index] = x
-<<<<<<< HEAD
 
         #get new CR matrix and resolve level pops with new A
         frac = str(round(x/old_a,2))
@@ -350,7 +315,6 @@ def vary_a(inputs, values, transition):
             ion_emiss = ionize(Z, z1, Te, dens, in_range, pop_fraction, newsettings=nset)
             new_linelist['epsilon'] += recomb_emiss['epsilon']
             new_linelist['epsilon'] += ion_emiss['epsilon']
-=======
         
         #get new matrix and resolve level pops with new A
         frac = str(round(x/old_a,2))
@@ -367,37 +331,16 @@ def vary_a(inputs, values, transition):
             new_linelist['lambda'][i] = in_range['WAVELEN'][i] #wavelength will be same
             pop_level = in_range['UPPER_LEV'][i]
             new_linelist['epsilon'][i] = in_range['EINSTEIN_A'][i]*new_lev_pop[pop_level-1]
->>>>>>> d62ccbc3c5cec6ddf9ffad10769e49c748c5abdf
         
         #update sensitivity table 
         new_col = Column(name='Epsilon_'+str(index), data = new_linelist['epsilon'], unit = frac+' A')
         table.add_columns([new_col])
-<<<<<<< HEAD
         index+=1
         
     values = {'table': table, 'new_table': new_table, 'new_linelist': new_linelist, 'q_max': q_max, 'q_min': q_min}
     return inputs, values
-    
-def vary_exc(inputs, values, which_transition):
-=======
-            
-        index+=1
-        
-    values = {}
-    values.update( {'table': table, 'new_table': new_table, 'new_linelist': new_linelist, \
-                    'q_max': q_max, 'q_min': q_min} )
-    
-    element = pyatomdb.atomic.Ztoelsymb(Z)
-    ion = pyatomdb.atomic.int_to_roman(z1)
-    percent=str(delta_r*100)
-    print("\nFor", element, ion + ", changed inputs:", "A value for level", \
-          str(initial_lev)+"->"+str(final_lev))
-    
-    return inputs, values
-    
+
 def vary_exc(inputs, values, transition):
->>>>>>> d62ccbc3c5cec6ddf9ffad10769e49c748c5abdf
-    
     """ Inputs and values are dictionaries outputted by set_up() subroutine. Transition is a tuple
     outputted by set_up() and dictates which transition to vary the excitation rate for by the specified
     delta_r in inputs.
@@ -408,7 +351,6 @@ def vary_exc(inputs, values, transition):
     Returns the dictionaries input and values."""
     
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
-<<<<<<< HEAD
     npnts, wavelen, Te_range, dens_range, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
     matrix, B, in_range, linelist, table, new_table = [values.get(k) for k in values]
@@ -447,7 +389,6 @@ def vary_exc(inputs, values, transition):
     print("new exc rates =", new_rate)
     q_max, q_min = new_rate[-1], new_rate[0]
 
-=======
     all_levels, nlev, npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
     matrix, B, in_range, linelist, table, new_table = [values.get(k) for k in values]
@@ -475,14 +416,12 @@ def vary_exc(inputs, values, transition):
     print("new rates =", new_rate)
     q_max = new_rate[-1]
     q_min = new_rate[0]
-        
->>>>>>> d62ccbc3c5cec6ddf9ffad10769e49c748c5abdf
+
     index=1
     for x in new_rate:
         #loop through varied rates, get new matrix and resolve level pops
         frac = str(round(x/old_rate,2))
         new_matrix = matrix.copy()
-<<<<<<< HEAD
         new_matrix[final_lev-1, initial_lev-1] += (x-old_rate)   #off diagonal term
         new_matrix[initial_lev-1, initial_lev-1] -= (x-old_rate)   #diagonal term
         new_matrix[0][:] = 1.0
@@ -513,38 +452,9 @@ def vary_exc(inputs, values, transition):
         table.add_columns([new_col])
         index +=1
     
-    values = {'table': table, 'new_table': new_table, 'new_linelist': new_linelist, 'q_max': q_max, 'q_min': q_min}
-=======
-        new_linelist=linelist.copy()
-        new_matrix[final_lev-1, initial_lev-1] += (x-old_rate)   #off diagonal term
-        new_matrix[initial_lev-1, initial_lev-1] -= (x-old_rate)   #diagonal term
-        new_matrix[0][:] = 1.0
-        
-        #find new level populations and get new epsilon values
-        new_lev_pop = numpy.linalg.solve(new_matrix,B)
-        
-        for i in range(len(in_range)):
-            new_linelist['lambda'][i] = in_range['WAVELEN'][i] #wavelength will be same
-            pop_level = in_range['UPPER_LEV'][i]
-            new_linelist['epsilon'][i] = in_range['EINSTEIN_A'][i]*new_lev_pop[pop_level-1]
-        
-        #update sensitivity table 
-        new_col = Column(name='Epsilon_'+str(index), data = new_linelist['epsilon'], unit = frac+' rate')
-        table.add_columns([new_col])
-        
-        index+=1
-    
-    values = {}
-    values.update( {'table': table, 'new_table': new_table, 'new_linelist': new_linelist, \
-                    'q_max': q_max, 'q_min': q_min} )
+        values = {'table': table, 'new_table': new_table, 'new_linelist': new_linelist, \
+                    'q_max': q_max, 'q_min': q_min}
 
-    element = pyatomdb.atomic.Ztoelsymb(Z)
-    ion = pyatomdb.atomic.int_to_roman(z1)
-    percent=str(delta_r*100)
-    print("\nFor", element, ion + ", changed inputs:", "excitation rate from level", \
-          str(initial_lev)+"->"+str(final_lev)) 
-    
->>>>>>> d62ccbc3c5cec6ddf9ffad10769e49c748c5abdf
     return inputs, values
 
 def get_tables(inputs, values):
@@ -553,11 +463,7 @@ def get_tables(inputs, values):
     
     Calculates dE/dR as the difference in min and max emissivities divided by the difference in changed rates,
     dE/dE_orig as the difference in min and max emissivities divided by the original emissivity, and sorts
-<<<<<<< HEAD
     the sensitivity table by dE/E.
-=======
-    the sensitivity table by dE/dE_orig. 
->>>>>>> d62ccbc3c5cec6ddf9ffad10769e49c748c5abdf
     
     If the variables corrthresh and e_signif were specified by the user, it will filter the
     sensitivity table for values with dE/dE_orig greater than corrthresh and/or for lines
@@ -566,32 +472,18 @@ def get_tables(inputs, values):
     Prints the sensitivity table.
     
     Returns table and new_table and the dictionaries inputs and results."""
-    
-<<<<<<< HEAD
+
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
     npnts, wavelen, Te_range, dens_range, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     table, new_table, new_linelist, q_max, q_min = [values.get(k) for k in values]
     min, max = table['Epsilon_1'], table['Epsilon_'+str(npnts)]
-    
-    #ratio_col = Column(name = 'Epsilon_max/Epsilon_min', data = (epsilon_max/table['Epsilon_1']))
-    #table.add_columns([ratio_col])
-    # table['Epsilon_max/Epsilon_min'] = max/min
-    # table['Epsilon_max/Epsilon_min'].unit = None
         
-    #add partial derivative, dE/dR
-    # delta_epsilon = Column(name = 'dE/dR', data = (epsilon_max-table['Epsilon_1'])/(q_max-q_min))
-    # new_table.add_columns([delta_epsilon])
+    #add partial derivative dE/dR and epsilon orig
     new_table['dE/dR'] = (max-min)/(q_max-q_min)
-    new_table['dE/dR'].unit = None
-    
-    # orig_eps = Column(name = 'Epsilon_orig', data = table['Epsilon_orig'])
-    # new_table.add_columns([orig_eps])
+    #new_table['dE/dR'].unit = None
     new_table['Epsilon_orig'] = table['Epsilon_orig']
     
-    #add "correlation factor" dE/dE_orig
-    # epsilon_corr = Column(name = 'dE/E', data = (epsilon_max-table['Epsilon_1'])/table['Epsilon_orig'])
-    # abs_epsilon_corr = Column(name = '|dE/E|', data = [abs(val) for val in epsilon_corr])
-    # new_table.add_columns([abs_epsilon_corr])
+    #add "correlation factor" dE/E
     new_table['|dE/E|'] = [abs(val) for val in max-min/table['Epsilon_orig']]
     try:
       new_table.sort('|dE/E|', reverse=True)
@@ -723,67 +615,10 @@ def wrapper_plot_nei(inputs):   #get nei line emissivities and plot
     
 def plot_sensitivity(inputs, new_table):
     
-    """ Inputs is a dictionary outputted by set_up() and new_table is the sensitivity
-=======
-    Z, z1, Te, dens, process, delta_r, transition, transition_2, all_levels, \
-    nlev, npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
-    
-    table, new_table, new_linelist, q_max, q_min = [values.get(k) for k in values]
-
-    epsilon_max = table['Epsilon_'+str(npnts)]
-    
-    ratio_col = Column(name = 'Epsilon_max/Epsilon_min', data = (epsilon_max/table['Epsilon_1']))
-    table.add_columns([ratio_col])
-    table['Epsilon_max/Epsilon_min'].unit = None
-        
-    #add partial derivative, dE/dR
-    delta_epsilon = Column(name = 'dE/dR', data = (epsilon_max-table['Epsilon_1'])/(q_max-q_min))
-    new_table.add_columns([delta_epsilon])
-    new_table['dE/dR'].unit = None
-    
-    orig_eps = Column(name = 'Epsilon_orig', data = table['Epsilon_orig'])
-    new_table.add_columns([orig_eps])
-    
-    #add "correlation factor" dE/dE_orig
-    epsilon_corr = Column(name = 'dE/dE_orig', data = (epsilon_max-table['Epsilon_1'])/table['Epsilon_orig'])
-    abs_epsilon_corr = Column(name = '|dE/dE_orig|', data = [abs(val) for val in epsilon_corr])
-    new_table.add_columns([abs_epsilon_corr])
-    new_table.sort('|dE/dE_orig|', reverse=True)
-    
-    #apply filters
-    if corrthresh != 0.0:     #only show lines whose "epsilon correlation" >= than specified value
-        new_table = new_table[new_table['|dE/dE_orig|'] >= corrthresh]
-    elif e_signif != 0.0:    #only show lines with partial epsilon/partial rate derivative is >= specified value
-        new_table = new_table[new_table['dE/dR'] >= eps_der]
-
-    #print("Lines affected at Te="+str(Te) + ", dens="+str(dens))
-    #print(table)
-    #print(new_table)
-    
-    #update output dictionary
-    results={}
-    results.update({'inputs': inputs,
-                    'wavelength': numpy.array(new_table['Lambda']),\
-                    'upper': numpy.array(new_table['Upper']), \
-                    'lower': numpy.array(new_table['Lower']), \
-                    'dE/dR': numpy.array(new_table['dE/dR']), \
-                    'epsilon_orig': numpy.array(new_table['Epsilon_orig']),\
-                    '|dE/dE_orig|': numpy.array(new_table['|dE/dE_orig|']), \
-                    'min_eps': numpy.array(table['Epsilon_1']), \
-                    'max_eps': epsilon_max })
-    
-    return table, new_table, inputs, results
-    
-def plot_sensitivity(inputs, new_table):
-    
     """ Inputs is a dictionary outputted by get_tables() and new_table is the sensitivity
->>>>>>> d62ccbc3c5cec6ddf9ffad10769e49c748c5abdf
     table outputted by get_tables().
-    
-    Plots the lines affected by the parameter(s) changed, including the original transition.
-    Currently plotting for wavelengths between 10-20 Angstroms (as set by mask1 and mask2 below).""" 
-    
-<<<<<<< HEAD
+    Plots the lines affected by the parameter(s) changed, including the original transition."""
+
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
     npnts, wavelen, Te_range, dens_range, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
@@ -804,7 +639,7 @@ def plot_sensitivity(inputs, new_table):
     
     #plot wavelength vs. % emissivity change
     axs[0,1].semilogy(cutoff_data['Lambda'], cutoff_data['|dE/E|'], linestyle='', marker='o', label=transition)
-=======
+
     Z, z1, Te, dens, process, delta_r, transition, transition_2, all_levels, \
     nlev, npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
@@ -838,7 +673,6 @@ def plot_sensitivity(inputs, new_table):
     
     #plot wavelength vs. % emissivity change
     ax1.semilogy(cutoff_data['Lambda'], cutoff_data['|dE/dE_orig|'], linestyle='', marker='o', label=transition)
->>>>>>> d62ccbc3c5cec6ddf9ffad10769e49c748c5abdf
     
     #label each point w/ transition
     transition_labels=[]
@@ -848,7 +682,7 @@ def plot_sensitivity(inputs, new_table):
         if process == 'exc':
             transition_name = '{0:g}'.format(x['Lower'])+'->'+'{0:g}'.format(x['Upper'])
         transition_labels.append(transition_name)
-<<<<<<< HEAD
+
     for (x,y,label) in zip(numpy.array(cutoff_data['Lambda']),numpy.array(cutoff_data['|dE/E|']),transition_labels):
         axs[0,1].annotate(label, xy=(x,y))
 
@@ -954,7 +788,7 @@ def run_line_diagnostics(Z, z1, up, lo, Te, dens, vary, delta_r, Te_range={}, de
     return line_diagnostics
     
 def plot_line_diagnostics(transition, vary, delta_r, line_diagnostics):
-=======
+
     for (x,y,label) in zip(numpy.array(cutoff_data['Lambda']),numpy.array(cutoff_data['|dE/dE_orig|']),transition_labels):
         ax1.annotate(label, xy=(x,y))
     
@@ -1177,7 +1011,6 @@ def run_line_diagnostics(table, inputs, values, which_transition):
     return line_diagnostics
     
 def plot_line_diagnostics(inputs, line_diagnostics):
->>>>>>> d62ccbc3c5cec6ddf9ffad10769e49c748c5abdf
     
     """ Line_diagnostics is a dictionary outputted by run_line_diagnostics. It holds arrays of
     the temperature and density bins, the original, minimum, and maximum emissivities from varying
@@ -1186,7 +1019,6 @@ def plot_line_diagnostics(inputs, line_diagnostics):
     
     Plots emissivity as a function of temperature and density for the specified single transition."""
 
-<<<<<<< HEAD
     print("Plotting line diagnostics now.")
     type = line_diagnostics.get('type')
     text = '{0:g}'.format(transition[0]) + '->' + '{0:g}'.format(transition[1])
@@ -1249,7 +1081,6 @@ def plot_line_diagnostics(inputs, line_diagnostics):
     plt.close('all')
 
 def run_line_ratio_diagnostics(transition1, transition2, line_diagnostics_1, line_diagnostics_2, vary, delta_r, plot=False):
-=======
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
     all_levels, nlev, npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
@@ -1313,7 +1144,6 @@ def run_line_ratio_diagnostics(transition1, transition2, line_diagnostics_1, lin
     plt.show()
     
 def wrapper_run_line_diagnostics(table1, inputs1, values1, table2, inputs2, values2):
->>>>>>> d62ccbc3c5cec6ddf9ffad10769e49c748c5abdf
     
     """ Table1 and table2 are tables from individually run get_tables() on the two transitions
     specified by the user. Inputs1, values1, inputs2, values2, are  dictionaries holding the
@@ -1324,7 +1154,7 @@ def wrapper_run_line_diagnostics(table1, inputs1, values1, table2, inputs2, valu
     Returns dictionary line_ratio_diagnostics containing arrays of the temperature and density bins
     for each transition, as well as the original, minimum, and maximum line ratios calculated
     from varying temperature and density independently."""
-<<<<<<< HEAD
+
     type = line_diagnostics_1.get('type')
 
     if type == 'temp':
@@ -1370,15 +1200,12 @@ def wrapper_run_line_diagnostics(table1, inputs1, values1, table2, inputs2, valu
     return line_ratio_diagnostics
 
 def plot_line_ratio_diagnostics(transition, transition2, vary, delta_r, line_ratio_diagnostics):
-    
-    """ Line_ratio_diagnostics is a dictionary from run_line_ratio_diagnostics() containing
-=======
-    
+
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
     all_levels, nlev, npnts, show, wavelen, corrthresh, e_signif = [inputs1.get(k) for k in inputs1]
 
     line_ratio_diagnostics = {}
-    
+
     element = pyatomdb.atomic.Ztoelsymb(Z)
     ion = pyatomdb.atomic.int_to_roman(z1)
     line1=str(transition[0])+'-'+str(transition[1])
@@ -1389,29 +1216,29 @@ def plot_line_ratio_diagnostics(transition, transition2, vary, delta_r, line_rat
     percentage = '{0:g}'.format(delta_r*100)+'%'
     density = 'dens='+str(dens)
     if process == 'A':
-        text= line_ratio + ' A value $\Delta$ $\pm$' + percentage 
+        text= line_ratio + ' A value $\Delta$ $\pm$' + percentage
     elif process == 'exc':
         text= line_ratio + ' Direct excitation rate $\Delta$ $\pm$' + percentage
-    
+
     print("////////////////////////////////////////////////////////////////")
     print("Running diagnostics for line ratio", line_ratio)
     print("////////////////////////////////////////////////////////////////")
-    
+
     line_diagnostics1 = run_line_diagnostics(table1, inputs1, values1, transition)
     line_diagnostics2 = run_line_diagnostics(table2, inputs2, values2, transition_2)
-    
+
     temp_bins1, dens_bins1, Te_eps_orig1, Te_eps_min1, Te_eps_max1, dens_eps_orig1, \
         dens_eps_min1, dens_eps_max1, name1, label1, transition1 = [line_diagnostics1.get(k) for k in line_diagnostics1]
     temp_bins2, dens_bins2, Te_eps_orig2, Te_eps_min2, Te_eps_max2, dens_eps_orig2, \
         dens_eps_min2, dens_eps_max2, name2, label2, transition2 = [line_diagnostics2.get(k) for k in line_diagnostics2]
-    
+
     Te_line_ratios = [x/y for x,y in zip(Te_eps_orig1, Te_eps_orig2)]
     Te_line_ratios_min = [x/y for x,y in zip(Te_eps_min1, Te_eps_max2)]
     Te_line_ratios_max = [x/y for x,y in zip(Te_eps_max1, Te_eps_min2)]
     dens_line_ratios = [x/y for x,y in zip(dens_eps_orig1, dens_eps_orig2)]
     dens_line_ratios_min = [x/y for x,y in zip(dens_eps_min1, dens_eps_max2)]
     dens_line_ratios_max = [x/y for x,y in zip(dens_eps_max1, dens_eps_min2)]
-    
+
     line_ratio_diagnostics.update({'temp_bins1': numpy.asarray(temp_bins1), \
                                    'temp_bins2': numpy.asarray(temp_bins2), \
                                    'dens_bins1': numpy.asarray(dens_bins1), \
@@ -1423,84 +1250,82 @@ def plot_line_ratio_diagnostics(transition, transition2, vary, delta_r, line_rat
                                  'dens_line_ratios_min': numpy.asarray(dens_line_ratios_min), \
                                  'dens_line_ratios_max': numpy.asarray(dens_line_ratios_max), \
                                    'ratio': line_ratio, 'name': name, 'label': label1})
-        
-        
-    file = open('line_ratio_diagnostics', 'wb')
-    pickle.dump(line_ratio_diagnostics, file)
-    file.close()
-    
+
+
+    # file = open('line_ratio_diagnostics', 'wb')
+    # pickle.dump(line_ratio_diagnostics, file)
+    # file.close()
+
     return line_ratio_diagnostics
     
-def plot_line_ratio_diagnostics(inputs, line_ratio_diagnostics):
-    
-    """ Line_ratio_diagnostics is a dictionary from wrapper_run_line_diagnostics() containing
->>>>>>> d62ccbc3c5cec6ddf9ffad10769e49c748c5abdf
-    arrays of temperature and density bins, and line ratios (original, min, max) calculated
-    from varying temperature and density.
-    
-    Plots the line ratios of emissivities for specified two transitions as a function of
-    temperature and density."""
-
-<<<<<<< HEAD
-    print("Plotting line ratio diagnostics.")
-    type = line_ratio_diagnostics.get('type')
-
-    text = '{0:g}'.format(transition[0]) + '->' + '{0:g}'.format(transition[1]) + \
-        ' / ' + '{0:g}'.format(transition2[0]) + '->' + '{0:g}'.format(transition2[1])
-
-    if type == 'temp':  # plot emissivity versus temperature
-        type, temps, Te_orig, Te_min, Te_max = [line_ratio_diagnostics.get(k) for k in line_ratio_diagnostics]
-        fig, (ax, ax2) = plt.subplots(nrows=2, sharex=True)
-        fig.suptitle(text + ' ' + vary + ' ' + '$\pm$' + str(delta_r*100)+'%')
-        ax.set_ylabel('Line Ratio')
-        ax.semilogx(temps, Te_orig, label='Original', color='b')
-        ax.fill_between(temps, Te_min, Te_max, alpha=0.5, color='b', label="Range")
-        min, max = [x / y for x, y in zip(Te_min, Te_orig)], [x / y for x, y in zip(Te_max, Te_orig)]
-        ax2.axhline(y=1, color='k')
-        ax2.fill_between(temps, min, max, label='Range', color='b', alpha=0.5)
-        ax2.set_xlabel('Temperature in K')
-        ax2.set_ylabel('New/Original Ratio')
-    elif type == 'dens':
-        type, dens, dens_orig, dens_min, dens_max = [line_ratio_diagnostics.get(k) for k in line_ratio_diagnostics]
-        fig, (ax, ax2) = plt.subplots(nrows=2, sharex=True)
-        fig.suptitle(text + ' ' + vary + ' ' + '$\pm$' + str(delta_r*100)+'%')
-        ax.set_ylabel('Line Ratio')
-        ax.set_xlabel('Density in cm$^{-3}$')
-        ax.semilogx(dens, dens_orig, label='Original', color='b')
-        ax.fill_between(dens, dens_min, dens_max, alpha=0.5, color='b', label="Range")
-        min, max = [x / y for x, y in zip(dens_min, dens_orig)], [x / y for x, y in zip(dens_max,dens_orig)]
-        ax2.axhline(y=1, color='k')
-        ax2.fill_between(dens, min, max, label='Range', color='b', alpha=0.5)
-        ax2.set_xlabel('Density in cm$^{-3}$')
-        ax2.set_ylabel('New/Original Ratio')
-    elif type == 'both':
-        type, temps, dens, Te_orig, Te_min, Te_max, dens_orig, dens_min, dens_max = \
-            [line_ratio_diagnostics.get(k) for k in line_ratio_diagnostics]
-        fig, ax = plt.subplots(ncols=2, nrows=2, sharey='row', sharex='col')
-        fig.suptitle(text + ' ' + vary + ' ' + '$\pm$' + str(delta_r*100)+'%')
-        ax[0, 0].set_ylabel('Line Ratio')
-        for ax in [ax[0, 0], ax[1, 0]]:
-            ax.set_xlabel('Temperature in K')
-        for ax in [ax[0, 1], ax[1, 1]]:
-            ax.set_xlabel('Density in cm$^{-3}$')
-        ax[1, 0].set_ylabel('New/Original Ratio')
-        ax[0, 1].semilogx(dens, dens_orig, label='Original', color='b')
-        ax[0, 0].semilogx(temps, Te_orig, label='Original', color='b')
-        ax[0, 1].fill_between(dens, dens_min, dens_max, alpha=0.5, color='b',label="Range")
-        ax[0, 0].fill_between(temps, Te_min, Te_max, color='b', alpha=0.5, label="Range")
-        ax[1, 0].axhline(y=1, color='k')
-        ax[1, 1].axhline(y=1, color='k')
-        min, max = [x / y for x, y in zip(dens_min, dens_orig)], [x / y for x, y in zip(dens_max, dens_orig)]
-        ax[1, 1].fill_between(dens, min, max, label='Range', color='b', alpha=0.5)
-        min, max = [x / y for x, y in zip(Te_min, Te_orig)], [x / y for x, y in zip(Te_max, Te_orig)]
-        ax[1, 0].fill_between(temps, min, max, label='Range', color='b', alpha=0.5)
-
-    plt.tight_layout()
-    plt.subplots_adjust(hspace=0, top=0.86)
-    plt.legend(fontsize='xx-small')
-    plt.savefig('test plot ratio diagnostics.pdf')
-    plt.show()
-    plt.close('all')
+# def plot_line_ratio_diagnostics(inputs, line_ratio_diagnostics):
+#
+#     """ Line_ratio_diagnostics is a dictionary from wrapper_run_line_diagnostics() containing
+#     arrays of temperature and density bins, and line ratios (original, min, max) calculated
+#     from varying temperature and density.
+#
+#     Plots the line ratios of emissivities for specified two transitions as a function of
+#     temperature and density."""
+#
+#     print("Plotting line ratio diagnostics.")
+#     type = line_ratio_diagnostics.get('type')
+#
+#     text = '{0:g}'.format(transition[0]) + '->' + '{0:g}'.format(transition[1]) + \
+#         ' / ' + '{0:g}'.format(transition2[0]) + '->' + '{0:g}'.format(transition2[1])
+#
+#     if type == 'temp':  # plot emissivity versus temperature
+#         type, temps, Te_orig, Te_min, Te_max = [line_ratio_diagnostics.get(k) for k in line_ratio_diagnostics]
+#         fig, (ax, ax2) = plt.subplots(nrows=2, sharex=True)
+#         fig.suptitle(text + ' ' + vary + ' ' + '$\pm$' + str(delta_r*100)+'%')
+#         ax.set_ylabel('Line Ratio')
+#         ax.semilogx(temps, Te_orig, label='Original', color='b')
+#         ax.fill_between(temps, Te_min, Te_max, alpha=0.5, color='b', label="Range")
+#         min, max = [x / y for x, y in zip(Te_min, Te_orig)], [x / y for x, y in zip(Te_max, Te_orig)]
+#         ax2.axhline(y=1, color='k')
+#         ax2.fill_between(temps, min, max, label='Range', color='b', alpha=0.5)
+#         ax2.set_xlabel('Temperature in K')
+#         ax2.set_ylabel('New/Original Ratio')
+#     elif type == 'dens':
+#         type, dens, dens_orig, dens_min, dens_max = [line_ratio_diagnostics.get(k) for k in line_ratio_diagnostics]
+#         fig, (ax, ax2) = plt.subplots(nrows=2, sharex=True)
+#         fig.suptitle(text + ' ' + vary + ' ' + '$\pm$' + str(delta_r*100)+'%')
+#         ax.set_ylabel('Line Ratio')
+#         ax.set_xlabel('Density in cm$^{-3}$')
+#         ax.semilogx(dens, dens_orig, label='Original', color='b')
+#         ax.fill_between(dens, dens_min, dens_max, alpha=0.5, color='b', label="Range")
+#         min, max = [x / y for x, y in zip(dens_min, dens_orig)], [x / y for x, y in zip(dens_max,dens_orig)]
+#         ax2.axhline(y=1, color='k')
+#         ax2.fill_between(dens, min, max, label='Range', color='b', alpha=0.5)
+#         ax2.set_xlabel('Density in cm$^{-3}$')
+#         ax2.set_ylabel('New/Original Ratio')
+#     elif type == 'both':
+#         type, temps, dens, Te_orig, Te_min, Te_max, dens_orig, dens_min, dens_max = \
+#             [line_ratio_diagnostics.get(k) for k in line_ratio_diagnostics]
+#         fig, ax = plt.subplots(ncols=2, nrows=2, sharey='row', sharex='col')
+#         fig.suptitle(text + ' ' + vary + ' ' + '$\pm$' + str(delta_r*100)+'%')
+#         ax[0, 0].set_ylabel('Line Ratio')
+#         for ax in [ax[0, 0], ax[1, 0]]:
+#             ax.set_xlabel('Temperature in K')
+#         for ax in [ax[0, 1], ax[1, 1]]:
+#             ax.set_xlabel('Density in cm$^{-3}$')
+#         ax[1, 0].set_ylabel('New/Original Ratio')
+#         ax[0, 1].semilogx(dens, dens_orig, label='Original', color='b')
+#         ax[0, 0].semilogx(temps, Te_orig, label='Original', color='b')
+#         ax[0, 1].fill_between(dens, dens_min, dens_max, alpha=0.5, color='b',label="Range")
+#         ax[0, 0].fill_between(temps, Te_min, Te_max, color='b', alpha=0.5, label="Range")
+#         ax[1, 0].axhline(y=1, color='k')
+#         ax[1, 1].axhline(y=1, color='k')
+#         min, max = [x / y for x, y in zip(dens_min, dens_orig)], [x / y for x, y in zip(dens_max, dens_orig)]
+#         ax[1, 1].fill_between(dens, min, max, label='Range', color='b', alpha=0.5)
+#         min, max = [x / y for x, y in zip(Te_min, Te_orig)], [x / y for x, y in zip(Te_max, Te_orig)]
+#         ax[1, 0].fill_between(temps, min, max, label='Range', color='b', alpha=0.5)
+#
+#     plt.tight_layout()
+#     plt.subplots_adjust(hspace=0, top=0.86)
+#     plt.legend(fontsize='xx-small')
+#     plt.savefig('test plot ratio diagnostics.pdf')
+#     plt.show()
+#     plt.close('all')
 
 def plot_multiple_sensitivity(Z, z1, Te, dens, delta_r, vary, lines, wavelen={}, corrthresh={}, e_signif={}):
 
@@ -1554,10 +1379,10 @@ def plot_multiple_sensitivity(Z, z1, Te, dens, delta_r, vary, lines, wavelen={},
             table, new_table, inputs, results = get_tables(new_inputs, new_values)
 
             # filter data for significance, only want other lines changed
-            for i in range(len(new_table)+1):
-                if (new_table['Upper'][i],new_table['Lower'][i]) == transition or (new_table['Upper'][i],new_table['Lower'][i]) == transition[::-1]:
-                    new_table.remove_rows([i])
-                    break
+            # for i in range(len(new_table)+1):
+            #     if (new_table['Upper'][i],new_table['Lower'][i]) == transition or (new_table['Upper'][i],new_table['Lower'][i]) == transition[::-1]:
+            #         new_table.remove_rows([i])
+            #         break
             cutoff_data = new_table[new_table['|dE/E|'] >= corrthresh]
             if wavelen != {}:
                 cutoff_data = cutoff_data[wavelen[0] < cutoff_data['Lambda'] < wavelen[1]]
@@ -1566,15 +1391,6 @@ def plot_multiple_sensitivity(Z, z1, Te, dens, delta_r, vary, lines, wavelen={},
 
             # plot wavelength vs. % emissivity change
             plt.semilogy(cutoff_data['Lambda'], cutoff_data['|dE/E|'], linestyle='', marker='o', label=k)
-
-            # label each point w/ transition
-            # transition_labels = []
-            # for x in cutoff_data:
-            #     transition_name = '{0:g}'.format(x['Upper']) + '->' + '{0:g}'.format(x['Lower'])
-            #     transition_labels.append(transition_name)
-            # for (x, y, label) in zip(numpy.array(cutoff_data['Lambda']), numpy.array(cutoff_data['|dE/E|']),
-            #                          transition_labels):
-            #     plt.annotate(label, xy=(x, y))
 
             plt.tight_layout()
             if vary == 'exc':
@@ -1593,40 +1409,51 @@ def plot_multiple_sensitivity(Z, z1, Te, dens, delta_r, vary, lines, wavelen={},
 
     plt.show()
 
-def closest(lst, K):
-    return lst[min(range(len(lst)), key=lambda i: abs(lst[i] - K))]
+# def closest(lst, K):
+#     return lst[min(range(len(lst)), key=lambda i: abs(lst[i] - K))]
 
-def blended_line_ratio(Z, z1, Te, dens, process, delta_r, transition_list, denom, type={}, num={}, Te_range={}, dens_range={}):
+def blended_line_ratio(Z, z1, Te, dens, vary, delta_r, transition_list, denom, type={}, num={}, Te_range={}, dens_range={}, plot=False):
     #specify equation of blended line ratio
     #i.e. denom=1, then blended line ratio = [line 1 + line 2] / line 3
     #denm=2, then blended line ratio = line 1 / [line 2 + line 3]
 
+    if type == 'temp':
+        print("Running blended line ratio diagnostics for", transition_list, "over", num, "temperatures from Te = ", Te_range)
+    elif type == 'dens':
+        print("Running blended line ratio diagnostics for", transition_list, "over", num, "densitiess at dens = ", dens_range)
+    print("Plot flag is", plot)
+
+    from timeit import default_timer as timer
+
+    #input checking
+    if num == {}: num = 10
+    if type == {}: type = 'both'
+
     emiss1, emiss2, emiss3 = {}, {}, {}
     emiss_list = (1,2,3)
-    transition_2, npnts, wavelen, corrthresh, e_signif = {}, 2, (10, 20), 10e-5, 0.0
+    extras = {'process': vary, 'delta_r': delta_r, 'transition': [], 'transition_2': [], 'npnts': 2,
+              'wavelen': (10, 20), 'Te_range': {}, 'dens_range': {}, 'corrthresh': 10e-5, 'e_signif': 0.0}
+    element = pyatomdb.atomic.Ztoelsymb(Z)
 
     if type == 'temp':
+        if Te_range == {} or Te_range == -1: Te_range = (Te / 10, Te * 10)
+        extras.update({'Te_range': Te_range})
         for transition, emiss in zip(transition_list, emiss_list):
-            extras={'process':process, 'delta_r':delta_r,
-            'transition':transition, 'transition_2':transition_2, 'npnts':npnts,
-            'wavelen':wavelen, 'Te_range':Te_range, 'dens_range':dens_range,
-            'corrthresh':corrthresh, 'e_signif':e_signif}
-            print('calculating for', transition)
-
+            print('Calculating temperature diagnostics for', transition)
+            up, lo = transition[0], transition[1]
+            if vary == 'A': extras.update({'transition': transition})
+            elif vary == 'exc': extras.update({'transition': transition[::-1]})
             inputs, values, transition = variableapec.set_up(Z, z1, Te, dens, extras=extras)
-            if process == 'A':
-                new_inputs, new_values = variableapec.vary_a(inputs, values, transition)
-            elif process == 'exc':
-                new_inputs, new_values = variableapec.vary_exc(inputs, values, transition)
-            table, new_table, inputs, results = variableapec.get_tables(new_inputs, new_values)
+            table = values.get('table')
 
             lines=[]
             for upper, lower, wavelen in zip(table['Upper'], table['Lower'], table['Lambda']):
-                if (upper, lower) == transition:
-                    lines.append(wavelen)
+                if (upper, lower) == (up, lo):
+                    if ((upper, lower) == (up, lo)) or ((upper, lower) == (lo, up)): lines.append(wavelen)
 
-            diagnostics = variableapec.run_line_diagnostics(table, inputs, values, transition, type='temp', num=num, plot=False)
-            temp_bins, Te_eps_orig, Te_eps_min, Te_eps_max, name, label, transition = [diagnostics.get(k) for k in diagnostics]
+            diagnostics = variableapec.run_line_diagnostics(Z, z1, up, lo, Te, dens, vary, delta_r,
+                            Te_range=Te_range, num=num, plot=False)
+            type, temp_bins, Te_eps_orig, Te_eps_min, Te_eps_max = [diagnostics.get(k) for k in diagnostics]
 
             if emiss == 1:
                 emiss1 = {'temp_bins': temp_bins, 'Te_min': Te_eps_min, 'Te_max': Te_eps_max, 'Te_orig': Te_eps_orig}
@@ -1635,87 +1462,73 @@ def blended_line_ratio(Z, z1, Te, dens, process, delta_r, transition_list, denom
             if emiss == 3:
                 emiss3 = {'temp_bins': temp_bins, 'Te_min': Te_eps_min, 'Te_max': Te_eps_max, 'Te_orig': Te_eps_orig}
 
-        # add emissivities from line diagnostics
-        # line ratio = [ line 1 + line 2 ] / line 3
-
         temp_bins1, Te_eps_min, Te_eps_max, Te_eps_orig = [emiss1.get(k) for k in emiss1]
-
         temp_bins2, Te_eps_min2, Te_eps_max2, Te_eps_orig2 = [emiss2.get(k) for k in emiss2]
-
         temp_bins3, Te_eps_min3, Te_eps_max3, Te_eps_orig3 = [emiss3.get(k) for k in emiss3]
 
         if denom==2:
-            Te_total_min = Te_eps_min / (Te_eps_min2 + Te_eps_min3)
-            Te_total_max = Te_eps_max / (Te_eps_max2 + Te_eps_max3)
-            Te_total_orig = Te_eps_orig / (Te_eps_orig2 + Te_eps_orig3)
+            Te_total_min = [x/(y+z) for x,y,z in zip(Te_eps_min, Te_eps_max2, Te_eps_max3)]
+            Te_total_max = [x/(y+z) for x,y,z in zip(Te_eps_max, Te_eps_min2, Te_eps_min3)]
+            Te_total_orig = [x/(y+z) for x,y,z in zip(Te_eps_orig, Te_eps_orig2, Te_eps_orig3)]
         elif denom==1:
-            Te_total_min = (Te_eps_min + Te_eps_min2) / Te_eps_min3
-            Te_total_max = (Te_eps_max + Te_eps_max2) / Te_eps_max3
-            Te_total_orig = (Te_eps_orig + Te_eps_orig2) / Te_eps_orig3
+            Te_total_min = [(x+y)/z for x, y, z in zip(Te_eps_min, Te_eps_min2, Te_eps_max3)]
+            Te_total_max = [(x+y)/z for x, y, z in zip(Te_eps_max, Te_eps_max2, Te_eps_min3)]
+            Te_total_orig = [(x+y)/z for x, y, z in zip(Te_eps_orig, Te_eps_orig2, Te_eps_orig3)]
 
-        t1 = Table([temp_bins1, Te_total_min, Te_total_max, Te_total_orig], \
-                   names=('temp', 'Te_min', 'Te_max', 'Te_orig'))
+        t1 = Table([temp_bins1, Te_total_min, Te_total_max, Te_total_orig],names=('temp', 'Te_min', 'Te_max', 'Te_orig'))
         for number in range(1, 20, 1):
-            file = pathlib.Path(name + 'blended_ratio_Te_' + str(number) + '.fits')
+            file = pathlib.Path(element+ '_'+str(z1) + '_blended_ratio_Te_' + str(number) + '.fits')
             if file.exists():
                 continue
             else:
-                t1.write(name + 'blended_ratio_Te_' + str(number) + '.fits', format='fits')
+                t1.write(element+ '_'+str(z1) + '_blended_ratio_Te_' + str(number) + '.fits', format='fits')
                 break
 
-        # plot
-        fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
-        ax2.set_xlabel('Log T(K)', fontsize=12)
-        ax2.set_ylabel('New Ratio/Original', fontsize=12)
-        blended_ratio = str(lines[0]) + str(lines[1]) + '$\AA$/' + str(lines[2]) + '$\AA$'
-        ax1.ylabel(blended_ratio, fontsize=12)
-        plt.semilogx(temp_bins, Te_total_orig, label='Original')
-        plt.fill_between(temp_bins, Te_total_min, Te_total_max, label='Range', color='g', alpha=0.5)
-        min = [x / y for x, y in zip(Te_total_min, Te_total_orig)]
-        max = [x / y for x, y in zip(Te_total_max, Te_total_orig)]
-        ax2.fill_between(temp_bins, min, max, color='g', alpha=0.5, label='Range')
-        plt.tight_layout()
-        fig.subplots_adjust(hspace=0)
-        ax2.axhline(y=1)
-        ax1.legend()
-        ax2.legend()
-
-        for number in range(1, 10):
-            outfile = pathlib.Path(element + ' ' + str(z1) + ' Te blended line ratio ' + str(number) + '.pdf')
-            if outfile.exists():
-                continue
-            else:
-                plt.savefig(element + ' ' + str(z1) + ' Te blended ratio' + str(number) + '.pdf')
-                break
+        if plot == True:
+            blended_ratio = str(lines[0]) + str(lines[1]) + '$\AA$/' + str(lines[2]) + '$\AA$'
+            fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
+            fig.suptitle(blended_ratio)
+            ax2.set_xlabel('Temperature in K')
+            ax2.set_ylabel('New Ratio/Original')
+            ax1.ylabel('Blended Ratio')
+            plt.semilogx(temp_bins1, Te_total_orig, label='Original', color='b')
+            plt.fill_between(temp_bins1, Te_total_min, Te_total_max, label='Range', color='b', alpha=0.5)
+            min = [x / y for x, y in zip(Te_total_min, Te_total_orig)]
+            max = [x / y for x, y in zip(Te_total_max, Te_total_orig)]
+            ax2.axhline(y=1, color='b')
+            ax2.fill_between(temp_bins1, min, max, color='b', alpha=0.5, label='Range')
+            plt.tight_layout()
+            fig.subplots_adjust(hspace=0, top=0.86)
+            ax1.legend(fontsize='xx-small')
+            ax2.legend(fontsize='xx-small')
+            for number in range(1, 10):
+                outfile = pathlib.Path(element + ' ' + str(z1) + ' blended ratio Te' + str(number) + '.pdf')
+                if outfile.exists():
+                    continue
+                else:
+                    plt.savefig(element + ' ' + str(z1) + ' blended ratio Te' + str(number) + '.pdf')
+                    break
+            plt.show()
+            plt.close('all')
 
     elif type == 'dens':
+        if dens_range == {} or dens_range == -1: dens_range = (1, 1e16)
+        extras.update({'dens_range': dens_range})
         for transition, emiss in zip(transition_list, emiss_list):
-            extras = {'process': process, 'delta_r': delta_r,
-                      'transition': transition, 'transition_2': transition_2, 'npnts': npnts,
-                      'wavelen': wavelen, 'Te_range': Te_range, 'dens_range': dens_range,
-                      'corrthresh': corrthresh, 'e_signif': e_signif}
-
+            print('Calculating density diagnostics for', transition)
+            up, lo = transition[0], transition[1]
+            if vary == 'A': extras.update({'transition': transition})
+            elif vary == 'exc': extras.update({'transition': transition[::-1]})
             inputs, values, transition = variableapec.set_up(Z, z1, Te, dens, extras=extras)
-
-            if process == 'A':
-                new_inputs, new_values = variableapec.vary_a(inputs, values, transition)
-            elif process == 'exc':
-                new_inputs, new_values = variableapec.vary_exc(inputs, values, transition)
-
-            table, new_table, inputs, results = variableapec.get_tables(new_inputs, new_values)
+            table = values.get('table')
 
             lines = []
             for upper, lower, wavelen in zip(table['Upper'], table['Lower'], table['Lambda']):
-                if process == 'exc':
-                    if (lower, upper) == transition:
-                        lines.append(wavelen)
-                elif process == 'A':
-                    if (upper, lower) == transition:
-                        lines.append(wavelen)
+                if ((upper, lower) == transition) or ((upper, lower) == transition): lines.append(wavelen)
 
-            diagnostics = variableapec.run_line_diagnostics(table, inputs, values, transition, type='dens', num=num, plot=False)
+            diagnostics = variableapec.run_line_diagnostics(Z, z1, up, lo, Te, dens, vary, delta_r, dens_range=dens_range, num=num, plot=False)
 
-            dens_bins, dens_eps_orig, dens_eps_min, dens_eps_max, name, label, which_transition = [diagnostics.get(k) for k in diagnostics]
+            type, dens_bins, dens_eps_orig, dens_eps_min, dens_eps_max = [diagnostics.get(k) for k in diagnostics]
 
             if emiss == 1:
                 emiss1 = {'dens_bins': dens_bins, 'dens_min': dens_eps_min, 'dens_max': dens_eps_max, 'dens_orig': dens_eps_orig}
@@ -1724,133 +1537,160 @@ def blended_line_ratio(Z, z1, Te, dens, process, delta_r, transition_list, denom
             if emiss == 3:
                 emiss3 = {'dens_bins': dens_bins, 'dens_min':dens_eps_min, 'dens_max': dens_eps_max, 'dens_orig': dens_eps_orig}
 
-        # add emissivities from line diagnostics
-        # line ratio = [ line 1 + line 2 ] / line 3
-
-        dens_bins1, dens_eps_min, dens_eps_max, dens_eps_orig = [emiss1.get(k) for k in emiss1]
+        dens_bins, dens_eps_min, dens_eps_max, dens_eps_orig = [emiss1.get(k) for k in emiss1]
         dens_bins2, dens_eps_min2, dens_eps_max2, dens_eps_orig2 = [emiss2.get(k) for k in emiss2]
         dens_bins3, dens_eps_min3, dens_eps_max3, dens_eps_orig3 = [emiss3.get(k) for k in emiss3]
 
-        dens_total_min = (dens_eps_min + dens_eps_min2) / dens_eps_min3
-        dens_total_max = (dens_eps_max + dens_eps_max2) / dens_eps_max3
-        dens_total_orig = (dens_eps_orig + dens_eps_orig2) / dens_eps_orig3
+        if denom==2:
+            dens_total_min = [x/(y+z) for x,y,z in zip(dens_eps_min, dens_eps_max2, dens_eps_max3)]
+            dens_total_max = [x/(y+z) for x,y,z in zip(dens_eps_max, dens_eps_min2, dens_eps_min3)]
+            dens_total_orig = [x/(y+z) for x,y,z in zip(dens_eps_orig, dens_eps_orig2, dens_eps_orig3)]
+        elif denom==1:
+            dens_total_min = [(x+y)/z for x, y, z in zip(dens_eps_min, dens_eps_min2, dens_eps_max3)]
+            dens_total_max = [(x+y)/z for x, y, z in zip(dens_eps_max, dens_eps_max2, dens_eps_min3)]
+            dens_total_orig = [(x+y)/z for x, y, z in zip(dens_eps_orig, dens_eps_orig2, dens_eps_orig3)]
 
-        t2 = Table([dens_bins1, dens_total_min, dens_total_max, dens_total_orig],
-                   names=('dens', 'dens_min', 'dens_max', 'dens_orig'))
-        t3 = Table([dens_bins1, dens_eps_min,dens_eps_max, dens_eps_orig, dens_bins2, dens_eps_min2, dens_eps_max2, dens_eps_orig2,
-                    dens_bins3, dens_eps_min3, dens_eps_max3, dens_eps_orig3],
-                   names=('dens bins1', 'dens min1', 'dens max1', 'dens orig1',
-                          'dens bins2',  'dens min2', 'dens max2', 'dens orig2',
-                          'dens bins3',  'dens min3', 'dens max3', 'dens orig3'))
+        t2 = Table([dens_bins, dens_total_min, dens_total_max, dens_total_orig], names=('dens', 'dens_min', 'dens_max', 'dens_orig'))
         for number in range(1, 20, 1):
-            file = pathlib.Path(name + 'blended_ratio_dens_' + str(number) + '.fits')
+            file = pathlib.Path(element+ '_'+str(z1) + '_blended_ratio_dens_' + str(number) + '.fits')
             if file.exists():
                 continue
             else:
-                t2.write(name+ 'blended_ratio_dens_' + str(number) + '.fits', format='fits')
-                t3.write(name +'blended_individual_emiss_dens_' + str(number) + '.fits', format='fits')
+                t2.write(element+ '_'+str(z1) + '_blended_ratio_dens_' + str(number) + '.fits', format='fits')
                 break
 
-        # plot
-        blended_ratio = str(lines[0]) + str(lines[1]) + '$\AA$/' + str(lines[2]) + '$\AA$'
-
-        fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
-        ax2.set_xlabel('Log Density (cm$^{-3}$)', fontsize=12)
-        ax2.set_ylabel('New Ratio/Original', fontsize=12)
-        ax1.ylabel(blended_ratio, fontsize=12)
-        ax1.semilogx(dens_bins, dens_total_orig, label='Original')
-        ax1.fill_between(dens_bins, dens_total_min, dens_total_max, label='Range', color='g', alpha=0.5)
-        ax2.axhline(y=1)
-        min = [x / y for x, y in zip(dens_total_min, dens_total_orig)]
-        max = [x / y for x, y in zip(dens_total_max, dens_total_orig)]
-        ax2.fill_between(dens_bins, min, max, color='g', alpha=0.5, label='Range')
-        plt.tight_layout()
-        fig.subplots_adjust(hspace=0)
-        ax1.legend()
-        ax2.legend()
-
-        for number in range(1, 10):
-            outfile = pathlib.Path(element + ' ' + str(z1) + ' dens blended line ratio ' + str(number) + '.pdf')
-            if outfile.exists():
-                continue
-            else:
-                plt.savefig(element + ' ' + str(z1) + ' dens blended ratio' + str(number) + '.pdf')
-                break
+        if plot == True:
+            blended_ratio = str(lines[0]) + str(lines[1]) + '$\AA$/' + str(lines[2]) + '$\AA$'
+            fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
+            fig.suptitle(blended_ratio)
+            ax2.set_xlabel('Density in cm$^{-3}$')
+            ax2.set_ylabel('New Ratio/Original')
+            ax1.ylabel('Blended Ratio')
+            ax1.semilogx(dens_bins, dens_total_orig, label='Original', color='b')
+            ax1.fill_between(dens_bins, dens_total_min, dens_total_max, label='Range', color='b', alpha=0.5)
+            ax2.axhline(y=1, color='b')
+            min = [x / y for x, y in zip(dens_total_min, dens_total_orig)]
+            max = [x / y for x, y in zip(dens_total_max, dens_total_orig)]
+            ax2.fill_between(dens_bins, min, max, color='b', alpha=0.5, label='Range')
+            plt.tight_layout()
+            fig.subplots_adjust(hspace=0, top=0.86)
+            ax1.legend(fontsize='xx-small')
+            ax2.legend(fontsize='xx-small')
+            for number in range(1, 10):
+                outfile = pathlib.Path(element + ' ' + str(z1) + ' blended ratio dens ' + str(number) + '.pdf')
+                if outfile.exists():
+                    continue
+                else:
+                    plt.savefig(element + ' ' + str(z1) + ' blended ratio dens ' + str(number) + '.pdf')
+                    break
+            plt.show()
+            plt.close('all')
 
     elif type == 'both':
-        temp_bins, dens_bins, Te_eps_orig, Te_eps_min, Te_eps_max, dens_eps_orig, \
-        dens_eps_min, dens_eps_max, name, label, transition = [diagnostics.get(k) for k in diagnostics]
+        if dens_range == {} or dens_range == -1: dens_range = (1, 1e16)
+        if Te_range == {} or Te_range == -1: Te_range = (Te/10, Te*10)
+        extras.update({'dens_range': dens_range, 'Te_range': Te_range})
+        for transition, emiss in zip(transition_list, emiss_list):
+            print('Calculating temperature and density diagnostics for', transition)
+            up, lo = transition[0], transition[1]
+            if vary == 'A': extras.update({'transition': transition})
+            elif vary == 'exc': extras.update({'transition': transition[::-1]})
+            inputs, values, transition = variableapec.set_up(Z, z1, Te, dens, extras=extras)
+            table = values.get('table')
 
-        if emiss == emiss1:
-            emiss1 = {'temp_bins': temp_bins, 'dens_bins': dens_bins, 'Te_min': Te_eps_min, 'Te_max': Te_eps_max,
-                      'Te_orig': Te_eps_orig, \
-                      'dens_min': dens_eps_min, 'dens_max': dens_eps_max, 'dens_orig': dens_eps_orig}
-        if emiss == emiss2:
-            emiss2 = {'temp_bins': temp_bins, 'dens_bins': dens_bins, 'Te_min': Te_eps_min, 'Te_max': Te_eps_max,
-                      'Te_orig': Te_eps_orig, \
-                      'dens_min': dens_eps_min, 'dens_max': dens_eps_max, 'dens_orig': dens_eps_orig}
-        if emiss == emiss3:
-            emiss3 = {'temp_bins': temp_bins, 'dens_bins': dens_bins, 'Te_min': Te_eps_min, 'Te_max': Te_eps_max,
-                      'Te_orig': Te_eps_orig, \
-                      'dens_min': dens_eps_min, 'dens_max': dens_eps_max, 'dens_orig': dens_eps_orig}
+            lines = []
+            for upper, lower, wavelen in zip(table['Upper'], table['Lower'], table['Lambda']):
+                if ((upper, lower) == (up, lo)) or ((upper, lower) == (lo, up)): lines.append(wavelen)
 
-        # add emissivities from line diagnostics
-        # line ratio = [ line 1 + line 2 ] / line 3
+            diagnostics = variableapec.run_line_diagnostics(Z, z1, up, lo, Te, dens, vary, delta_r,
+                                               Te_range=Te_range, dens_range=dens_range, num=num, plot=False)
 
-        temp_bins1, dens_bins1, Te_eps_min, Te_eps_max, Te_eps_orig, dens_eps_min, dens_eps_max, dens_eps_orig = \
-            [emiss1.get(k) for k in emiss1]
+            type, temps, dens, Te_orig, Te_min, Te_max, dens_orig, dens_min, dens_max = [diagnostics.get(k) for k in diagnostics]
 
-        temp_bins2, dens_bins2, Te_eps_min2, Te_eps_max2, Te_eps_orig2, dens_eps_min2, dens_eps_max2, dens_eps_orig2 = \
-            [emiss2.get(k) for k in emiss2]
+            if emiss == emiss1:
+                emiss1 = {'temp_bins': temps, 'dens_bins': dens, 'Te_min': Te_min, 'Te_max': Te_max,
+                          'Te_orig': Te_orig, 'dens_min': dens_min, 'dens_max': dens_max, 'dens_orig': dens_orig}
+            if emiss == emiss2:
+                emiss2 = {'temp_bins': temps, 'dens_bins': dens, 'Te_min': Te_min, 'Te_max': Te_max,
+                          'Te_orig': Te_orig, 'dens_min': dens_min, 'dens_max': dens_max, 'dens_orig': dens_orig}
+            if emiss == emiss3:
+                emiss3 = {'temp_bins': temps, 'dens_bins': dens, 'Te_min': Te_min, 'Te_max': Te_max,
+                          'Te_orig': Te_orig, 'dens_min': dens_min, 'dens_max': dens_max, 'dens_orig': dens_orig}
 
-        temp_bins3, dens_bins3, Te_eps_min3, Te_eps_max3, Te_eps_orig3, dens_eps_min3, dens_eps_max3, dens_eps_orig3 = \
-            [emiss3.get(k) for k in emiss3]
+        temps1, dens1, Te_min, Te_max, Te_orig, dens_min, dens_max, dens_orig = [emiss1.get(k) for k in emiss1]
+        temps2, dens2, Te_min2, Te_max2, Te_orig2, dens_min2, dens_max2, dens_orig2 = [emiss2.get(k) for k in emiss2]
+        temps3, dens3, Te_min3, Te_max3, Te_orig3, dens_min3, dens_max3, dens_orig3 = [emiss3.get(k) for k in emiss3]
 
-        Te_total_min = (Te_eps_min + Te_eps_min2) / Te_eps_min3
-        Te_total_max = (Te_eps_max + Te_eps_max2) / Te_eps_max3
-        Te_total_orig = (Te_eps_orig + Te_eps_orig2) / Te_eps_orig3
-        dens_total_min = (dens_eps_min + dens_eps_min2) / dens_eps_min3
-        dens_total_max = (dens_eps_max + dens_eps_max2) / dens_eps_max3
-        dens_total_orig = (dens_eps_orig + dens_eps_orig2) / dens_eps_orig3
+        if denom==2:
+            Te_total_min = [x/(y+z) for x,y,z in zip(Te_eps_min, Te_eps_max2, Te_eps_max3)]
+            Te_total_max = [x/(y+z) for x,y,z in zip(Te_eps_max, Te_eps_min2, Te_eps_min3)]
+            Te_total_orig = [x/(y+z) for x,y,z in zip(Te_eps_orig, Te_eps_orig2, Te_eps_orig3)]
+            dens_total_min = [x / (y + z) for x, y, z in zip(dens_eps_min, dens_eps_max2, dens_eps_max3)]
+            dens_total_max = [x / (y + z) for x, y, z in zip(dens_eps_max, dens_eps_min2, dens_eps_min3)]
+            dens_total_orig = [x / (y + z) for x, y, z in zip(dens_eps_orig, dens_eps_orig2, dens_eps_orig3)]
+        elif denom==1:
+            Te_total_min = [(x+y)/z for x, y, z in zip(Te_eps_min, Te_eps_min2, Te_eps_max3)]
+            Te_total_max = [(x+y)/z for x, y, z in zip(Te_eps_max, Te_eps_max2, Te_eps_min3)]
+            Te_total_orig = [(x+y)/z for x, y, z in zip(Te_eps_orig, Te_eps_orig2, Te_eps_orig3)]
+            dens_total_min = [(x + y) / z for x, y, z in zip(dens_eps_min, dens_eps_min2, dens_eps_max3)]
+            dens_total_max = [(x + y) / z for x, y, z in zip(dens_eps_max, dens_eps_max2, dens_eps_min3)]
+            dens_total_orig = [(x + y) / z for x, y, z in zip(dens_eps_orig, dens_eps_orig2, dens_eps_orig3)]
 
-        t1 = Table([temp_bins1, Te_total_min, Te_total_max, Te_total_orig], \
-                   names=('temp', 'Te_min', 'Te_max', 'Te_orig'))
-        t2 = Table([dens_bins1, dens_total_min, dens_total_max, dens_total_orig],
-                   names=('dens', 'dens_min', 'dens_max', 'dens_orig'))
+        t1 = Table([temps1, Te_total_min, Te_total_max, Te_total_orig], names=('temp', 'Te_min', 'Te_max', 'Te_orig'))
+        t2 = Table([dens1, dens_total_min, dens_total_max, dens_total_orig], names=('dens', 'dens_min', 'dens_max', 'dens_orig'))
         for number in range(1, 20, 1):
-            file = pathlib.Path(name + 'blended_ratio_Te_' + str(number) + '.fits')
+            file = pathlib.Path(element+ '_' +str(z1) + '_blended_ratio_Te_' + str(number) + '.fits')
             if file.exists():
                 continue
             else:
-                t1.write(name+ 'blended_ratio_Te_' + str(number) + '.fits', format='fits')
-                t2.write(name+ 'blended_ratio_dens_' + str(number) + '.fits', format='fits')
+                t1.write(element+ '_' +str(z1) +'_blended_ratio_Te_' + str(number) + '.fits', format='fits')
+                t2.write(element+ '_' +str(z1) +'_blended_ratio_dens_' + str(number) + '.fits', format='fits')
                 break
 
-        # plot
-        fig1 = plt.figure()
-        fig1.xlabel('Log T(K)', fontsize=12)
-        blended_ratio = str(lines[0]) + str(lines[1]) + '$\AA$/' + str(lines[2]) + '$\AA$'
-        fig1.ylabel('Blended line ratio ' + blended_ratio, fontsize=12)
-        fig1.semilogx(temp_bins, Te_total_orig, label='Original')
-        fig1.fill_between(temp_bins, Te_total_min, Te_total_max, label='Range', color='g', alpha=0.5)
+        if plot == True:
+            blended_ratio = str(lines[0]) + str(lines[1]) + '$\AA$/' + str(lines[2]) + '$\AA$'
+            fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
+            fig.suptitle(blended_ratio)
+            ax1.set_ylabel('Blended ratio') #blended_ratio, fontsize=12)
+            ax2.set_xlabel('Temperature in K', fontsize=12)
+            ax2.set_ylabel('New Ratio/Original', fontsize=12)
+            ax1.semilogx(temp_bins, Te_total_orig, label='Original', color='b')
+            ax1.fill_between(temp_bins, Te_total_min, Te_total_max, label='Range', color='b', alpha=0.5)
+            min = [x / y for x, y in zip(Te_total_min, Te_total_orig)]
+            max = [x / y for x, y in zip(Te_total_max, Te_total_orig)]
+            ax2.axhline(y=1, color='b')
+            ax2.fill_between(temp_bins, min, max, color='b', alpha=0.5, label='Range')
+            plt.tight_layout()
+            fig.subplots_adjust(hspace=0, top=0.86)
+            ax1.legend(fontsize='xx-small')
+            ax2.legend(fontsize='xx-small')
 
-        fig2 = plt.figure()
-        fig2.xlabel('Log Density (cm$^{-3}$)', fontsize=12)
-        fig2.ylabel('Blended line ratio ' + blended_ratio, fontsize=12)
-        fig2.semilogx(dens_bins, dens_total_orig, label='Original')
-        fig2.fill_between(dens_bins, dens_total_min, dens_total_max, label='Range', color='g', alpha=0.5)
+            fig2, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
+            fig2.suptitle(blended_ratio)
+            ax2.set_xlabel('Density in cm$^{-3}$')
+            ax2.set_ylabel('New Ratio/Original')
+            ax1.ylabel('Blended Ratio')
+            ax1.semilogx(dens_bins, dens_total_orig, label='Original', color='b')
+            ax1.fill_between(dens_bins, dens_total_min, dens_total_max, label='Range', color='b', alpha=0.5)
+            ax2.axhline(y=1, color='b')
+            min = [x / y for x, y in zip(dens_total_min, dens_total_orig)]
+            max = [x / y for x, y in zip(dens_total_max, dens_total_orig)]
+            ax2.fill_between(dens_bins, min, max, color='b', alpha=0.5, label='Range')
+            plt.tight_layout()
+            fig2.subplots_adjust(hspace=0, top=0.86)
+            ax1.legend(fontsize='xx-small')
+            ax2.legend(fontsize='xx-small')
 
-        for number in range(1,10):
-            outfile = pathlib.Path(element+' '+str(z1)+' Te blended line ratio '+str(number)+'.pdf')
-            if outfile.exists():
-                continue
-            else:
-                fig1.savefig(element + ' ' + str(z1) + ' Te blended line ratio ' + str(number) + '.pdf')
-                fig2.savefig(element + ' ' + str(z1) + ' dens blended line ratio ' + str(number) + '.pdf')
-                break
-
-    plt.show()
-    plt.close('all')
+            for number in range(1,10):
+                outfile = pathlib.Path(element+' '+str(z1)+' blended ratio Te '+str(number)+'.pdf')
+                if outfile.exists():
+                    continue
+                else:
+                    fig1.savefig(element + ' ' + str(z1) + ' blended ratio Te ' + str(number) + '.pdf')
+                    fig2.savefig(element + ' ' + str(z1) + ' blended ratio dens ' + str(number) + '.pdf')
+                    break
+            plt.show()
+            plt.close('all')
 
 def plot_blended_ratio(type, file):
     fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
@@ -4032,565 +3872,6 @@ def get_orig_popn(Z, Telist):
     eqpopn = solve_ionrec(Telist, ionlist, reclist, Z)
     return eqpopn
 
-def blended_line_ratio(Z, z1, Te, dens, vary, delta_r, transition_list, denom, type={}, num={}, Te_range={}, dens_range={}, plot=False):
-    #specify equation of blended line ratio
-    #i.e. denom=1, then blended line ratio = [line 1 + line 2] / line 3
-    #denm=2, then blended line ratio = line 1 / [line 2 + line 3]
-
-    #input checking
-    if Te_range == {} or Te_range == -1: Te_range = (Te/10, Te*10)
-    if dens_range == {} or dens_range == -1: dens_range = (1, 1e16)
-    if num == {}: num = 10
-    if type == {}: type = 'both'
-
-    emiss1, emiss2, emiss3 = {}, {}, {}
-    emiss_list = (1,2,3)
-    extras = {'process': vary, 'delta_r': delta_r, 'transition': [], 'transition_2': [], 'npnts': 2,
-              'wavelen': (10, 20), 'Te_range': Te_range, 'dens_range': dens_range, 'corrthresh': 10e-5, 'e_signif': 0.0}
-    element = pyatomdb.atomic.Ztoelsymb(Z)
-
-    if type == 'temp':
-        for transition, emiss in zip(transition_list, emiss_list):
-            print('Calculating temperature diagnostics for', transition)
-            up, lo = transition[0], transition[1]
-            if vary == 'A':
-                extras.update({'transition': transition})
-                inputs, values, transition = variableapec.set_up(Z, z1, Te, dens, extras=extras)
-                new_inputs, new_values = variableapec.vary_a(inputs, values, transition)
-            elif vary == 'exc':
-                extras.update({'transition': transition[::-1]})
-                inputs, values, transition = variableapec.set_up(Z, z1, Te, dens, extras=extras)
-                new_inputs, new_values = variableapec.vary_exc(inputs, values, transition)
-            table, new_table, inputs, results = variableapec.get_tables(new_inputs, new_values)
-
-            lines=[]
-            for upper, lower, wavelen in zip(table['Upper'], table['Lower'], table['Lambda']):
-                if (upper, lower) == (up, lo):
-                    lines.append(wavelen)
-
-            diagnostics = variableapec.run_line_diagnostics(Z, z1, up, lo, Te, dens, vary, delta_r,
-                            Te_range=Te_range, dens_range=dens_range, num=num, plot=plot)
-            type, temp_bins, Te_eps_orig, Te_eps_min, Te_eps_max = [diagnostics.get(k) for k in diagnostics]
-
-            if emiss == 1:
-                emiss1 = {'type': type, 'temp_bins': temp_bins, 'Te_min': Te_eps_min, 'Te_max': Te_eps_max, 'Te_orig': Te_eps_orig}
-            if emiss == 2:
-                emiss2 = {'type': type, 'temp_bins': temp_bins, 'Te_min': Te_eps_min, 'Te_max': Te_eps_max, 'Te_orig': Te_eps_orig}
-            if emiss == 3:
-                emiss3 = {'type': type, 'temp_bins': temp_bins, 'Te_min': Te_eps_min, 'Te_max': Te_eps_max, 'Te_orig': Te_eps_orig}
-
-        type, temp_bins1, Te_eps_min, Te_eps_max, Te_eps_orig = [emiss1.get(k) for k in emiss1]
-        type, temp_bins2, Te_eps_min2, Te_eps_max2, Te_eps_orig2 = [emiss2.get(k) for k in emiss2]
-        type, temp_bins3, Te_eps_min3, Te_eps_max3, Te_eps_orig3 = [emiss3.get(k) for k in emiss3]
-
-        if denom==2:
-            Te_total_min = Te_eps_min / (Te_eps_min2 + Te_eps_min3)
-            Te_total_max = Te_eps_max / (Te_eps_max2 + Te_eps_max3)
-            Te_total_orig = Te_eps_orig / (Te_eps_orig2 + Te_eps_orig3)
-        elif denom==1:
-            Te_total_min = (Te_eps_min + Te_eps_min2) / Te_eps_min3
-            Te_total_max = (Te_eps_max + Te_eps_max2) / Te_eps_max3
-            Te_total_orig = (Te_eps_orig + Te_eps_orig2) / Te_eps_orig3
-
-        t1 = Table([temp_bins1, Te_total_min, Te_total_max, Te_total_orig],names=('temp', 'Te_min', 'Te_max', 'Te_orig'))
-        for number in range(1, 20, 1):
-            file = pathlib.Path(element+ '_'+str(z1) + '_blended_ratio_Te_' + str(number) + '.fits')
-            if file.exists():
-                continue
-            else:
-                t1.write(element+ '_'+str(z1) + '_blended_ratio_Te_' + str(number) + '.fits', format='fits')
-                break
-
-        if plot == True:
-            blended_ratio = str(lines[0]) + str(lines[1]) + '$\AA$/' + str(lines[2]) + '$\AA$'
-            fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
-            fig.suptitle(blended_ratio)
-            ax2.set_xlabel('Temperature in K')
-            ax2.set_ylabel('New Ratio/Original')
-            ax1.ylabel('Blended Ratio')
-            plt.semilogx(temp_bins1, Te_total_orig, label='Original', color='b')
-            plt.fill_between(temp_bins1, Te_total_min, Te_total_max, label='Range', color='b', alpha=0.5)
-            min = [x / y for x, y in zip(Te_total_min, Te_total_orig)]
-            max = [x / y for x, y in zip(Te_total_max, Te_total_orig)]
-            ax2.axhline(y=1, color='b')
-            ax2.fill_between(temp_bins1, min, max, color='b', alpha=0.5, label='Range')
-            plt.tight_layout()
-            fig.subplots_adjust(hspace=0, top=0.86)
-            ax1.legend(fontsize='xx-small')
-            ax2.legend(fontsize='xx-small')
-            for number in range(1, 10):
-                outfile = pathlib.Path(element + ' ' + str(z1) + ' blended ratio Te' + str(number) + '.pdf')
-                if outfile.exists():
-                    continue
-                else:
-                    plt.savefig(element + ' ' + str(z1) + ' blended ratio Te' + str(number) + '.pdf')
-                    break
-            plt.show()
-            plt.close('all')
-
-    elif type == 'dens':
-        for transition, emiss in zip(transition_list, emiss_list):
-            print('Calculating density diagnostics for', transition)
-            up, lo = transition[0], transition[1]
-            if vary == 'A':
-                inputs, values, transition = variableapec.set_up(Z, z1, Te, dens, extras=extras)
-                new_inputs, new_values = variableapec.vary_a(inputs, values, transition)
-            elif vary == 'exc':
-                extras.update({'transition': (lo, up)})
-                inputs, values, transition = variableapec.set_up(Z, z1, Te, dens, extras=extras)
-                new_inputs, new_values = variableapec.vary_exc(inputs, values, transition)
-            table, new_table, inputs, results = variableapec.get_tables(new_inputs, new_values)
-
-            lines = []
-            for upper, lower, wavelen in zip(table['Upper'], table['Lower'], table['Lambda']):
-                if (upper, lower) == (up, lo): lines.append(wavelen)
-
-            diagnostics = variableapec.run_line_diagnostics(Z, z1, up, lo, Te, dens, vary, delta_r,
-                                               Te_range=Te_range, dens_range=dens_range, num=num, plot=plot)
-
-            type, dens_bins, dens_eps_orig, dens_eps_min, dens_eps_max = [diagnostics.get(k) for k in diagnostics]
-
-            if emiss == 1:
-                emiss1 = {'dens_bins': dens_bins, 'dens_min': dens_eps_min, 'dens_max': dens_eps_max, 'dens_orig': dens_eps_orig}
-            if emiss == 2:
-                emiss2 = {'dens_bins': dens_bins, 'dens_min':dens_eps_min, 'dens_max': dens_eps_max, 'dens_orig': dens_eps_orig}
-            if emiss == 3:
-                emiss3 = {'dens_bins': dens_bins, 'dens_min':dens_eps_min, 'dens_max': dens_eps_max, 'dens_orig': dens_eps_orig}
-
-        type1, dens_bins, dens_eps_min, dens_eps_max, dens_eps_orig = [emiss1.get(k) for k in emiss1]
-        type2, dens_bins2, dens_eps_min2, dens_eps_max2, dens_eps_orig2 = [emiss2.get(k) for k in emiss2]
-        type3, dens_bins3, dens_eps_min3, dens_eps_max3, dens_eps_orig3 = [emiss3.get(k) for k in emiss3]
-
-        if denom==2:
-            dens_total_min = dens_eps_min / (dens_eps_min2 + dens_eps_min3)
-            dens_total_max = dens_eps_max / (dens_eps_max2 + dens_eps_max3)
-            dens_total_orig = dens_eps_orig / (dens_eps_orig2 + dens_eps_orig3)
-        elif denom==1:
-            dens_total_min = (dens_eps_min + dens_eps_min2) / dens_eps_min3
-            dens_total_max = (dens_eps_max + dens_eps_max2) / dens_eps_max3
-            dens_total_orig = (dens_eps_orig + dens_eps_orig2) / dens_eps_orig3
-
-        t2 = Table([dens_bins, dens_total_min, dens_total_max, dens_total_orig], names=('dens', 'dens_min', 'dens_max', 'dens_orig'))
-        for number in range(1, 20, 1):
-            file = pathlib.Path(element+ '_'+str(z1) + '_blended_ratio_dens_' + str(number) + '.fits')
-            if file.exists():
-                continue
-            else:
-                t2.write(element+ '_'+str(z1) + '_blended_ratio_dens_' + str(number) + '.fits', format='fits')
-                break
-
-        if plot == True:
-            blended_ratio = str(lines[0]) + str(lines[1]) + '$\AA$/' + str(lines[2]) + '$\AA$'
-            fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
-            fig.suptitle(blended_ratio)
-            ax2.set_xlabel('Density in cm$^{-3}$')
-            ax2.set_ylabel('New Ratio/Original')
-            ax1.ylabel('Blended Ratio')
-            ax1.semilogx(dens_bins, dens_total_orig, label='Original', color='b')
-            ax1.fill_between(dens_bins, dens_total_min, dens_total_max, label='Range', color='b', alpha=0.5)
-            ax2.axhline(y=1, color='b')
-            min = [x / y for x, y in zip(dens_total_min, dens_total_orig)]
-            max = [x / y for x, y in zip(dens_total_max, dens_total_orig)]
-            ax2.fill_between(dens_bins, min, max, color='b', alpha=0.5, label='Range')
-            plt.tight_layout()
-            fig.subplots_adjust(hspace=0, top=0.86)
-            ax1.legend(fontsize='xx-small')
-            ax2.legend(fontsize='xx-small')
-            for number in range(1, 10):
-                outfile = pathlib.Path(element + ' ' + str(z1) + ' blended ratio dens ' + str(number) + '.pdf')
-                if outfile.exists():
-                    continue
-                else:
-                    plt.savefig(element + ' ' + str(z1) + ' blended ratio dens ' + str(number) + '.pdf')
-                    break
-            plt.show()
-            plt.close('all')
-
-    elif type == 'both':
-        for transition, emiss in zip(transition_list, emiss_list):
-            print('Calculating temperature and density diagnostics for', transition)
-            up, lo = transition[0], transition[1]
-            if vary == 'A':
-                inputs, values, transition = variableapec.set_up(Z, z1, Te, dens,extras=extras)
-                new_inputs, new_values = variableapec.vary_a(inputs, values, transition)
-            elif vary == 'exc':
-                extras.update({'transition': (lo, up)})
-                inputs, values, transition = variableapec.set_up(Z, z1, Te, dens, extras=extras)
-                new_inputs, new_values = variableapec.vary_exc(inputs, values, transition)
-            table, new_table, inputs, results = variableapec.get_tables(new_inputs, new_values)
-
-            lines = []
-            for upper, lower, wavelen in zip(table['Upper'], table['Lower'], table['Lambda']):
-                if (upper, lower) == (up, lo): lines.append(wavelen)
-
-            diagnostics = variableapec.run_line_diagnostics(Z, z1, up, lo, Te, dens, vary, delta_r,
-                                               Te_range=Te_range, dens_range=dens_range, num=num, plot=plot)
-
-            type, temps, dens, Te_orig, Te_min, Te_max, dens_orig, dens_min, dens_max = [diagnostics.get(k) for k in diagnostics]
-
-            if emiss == emiss1:
-                emiss1 = {'type':type, 'temp_bins': temps, 'dens_bins': dens, 'Te_min': Te_min, 'Te_max': Te_max,
-                          'Te_orig': Te_orig, 'dens_min': dens_min, 'dens_max': dens_max, 'dens_orig': dens_orig}
-            if emiss == emiss2:
-                emiss2 = {'type':type, 'temp_bins': temps, 'dens_bins': dens, 'Te_min': Te_min, 'Te_max': Te_max,
-                          'Te_orig': Te_orig, 'dens_min': dens_min, 'dens_max': dens_max, 'dens_orig': dens_orig}
-            if emiss == emiss3:
-                emiss3 = {'type':type, 'temp_bins': temps, 'dens_bins': dens, 'Te_min': Te_min, 'Te_max': Te_max,
-                          'Te_orig': Te_orig, 'dens_min': dens_min, 'dens_max': dens_max, 'dens_orig': dens_orig}
-
-        type1, temps1, dens1, Te_min, Te_max, Te_orig, dens_min, dens_max, dens_orig = [emiss1.get(k) for k in emiss1]
-        type2, temps2, dens2, Te_min2, Te_max2, Te_orig2, dens_min2, dens_max2, dens_orig2 = [emiss2.get(k) for k in emiss2]
-        type3, temps3, dens3, Te_min3, Te_max3, Te_orig3, dens_min3, dens_max3, dens_orig3 = [emiss3.get(k) for k in emiss3]
-
-        if denom == 1:
-            Te_total_min = (Te_min + Te_min2) / Te_min3
-            Te_total_max = (Te_max + Te_max2) / Te_max3
-            Te_total_orig = (Te_orig + Te_orig2) / Te_orig3
-            dens_total_min = (dens_min + dens_min2) / dens_min3
-            dens_total_max = (dens_max + dens_max2) / dens_max3
-            dens_total_orig = (dens_orig + dens_orig2) / dens_orig3
-        elif denom == 2:
-            Te_total_min = Te_min / (Te_min2 + Te_min3)
-            Te_total_max = Te_max / (Te_max2 + Te_max3)
-            Te_total_orig = Te_orig / (Te_orig2 + Te_orig3)
-            dens_total_min = dens_min / (dens_min2 + dens_min3)
-            dens_total_max = dens_max / (dens_max2 + dens_max3)
-            dens_total_orig = dens_orig / (dens_orig2 + dens_orig3)
-
-        t1 = Table([temps1, Te_total_min, Te_total_max, Te_total_orig], names=('temp', 'Te_min', 'Te_max', 'Te_orig'))
-        t2 = Table([dens1, dens_total_min, dens_total_max, dens_total_orig], names=('dens', 'dens_min', 'dens_max', 'dens_orig'))
-        for number in range(1, 20, 1):
-            file = pathlib.Path(element+ '_' +str(z1) + '_blended_ratio_Te_' + str(number) + '.fits')
-            if file.exists():
-                continue
-            else:
-                t1.write(element+ '_' +str(z1) +'_blended_ratio_Te_' + str(number) + '.fits', format='fits')
-                t2.write(element+ '_' +str(z1) +'_blended_ratio_dens_' + str(number) + '.fits', format='fits')
-                break
-
-        if plot == True:
-            blended_ratio = str(lines[0]) + str(lines[1]) + '$\AA$/' + str(lines[2]) + '$\AA$'
-            fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
-            fig.suptitle(blended_ratio)
-            ax1.set_ylabel('Blended ratio') #blended_ratio, fontsize=12)
-            ax2.set_xlabel('Temperature in K', fontsize=12)
-            ax2.set_ylabel('New Ratio/Original', fontsize=12)
-            ax1.semilogx(temp_bins, Te_total_orig, label='Original', color='b')
-            ax1.fill_between(temp_bins, Te_total_min, Te_total_max, label='Range', color='b', alpha=0.5)
-            min = [x / y for x, y in zip(Te_total_min, Te_total_orig)]
-            max = [x / y for x, y in zip(Te_total_max, Te_total_orig)]
-            ax2.axhline(y=1, color='b')
-            ax2.fill_between(temp_bins, min, max, color='b', alpha=0.5, label='Range')
-            plt.tight_layout()
-            fig.subplots_adjust(hspace=0, top=0.86)
-            ax1.legend(fontsize='xx-small')
-            ax2.legend(fontsize='xx-small')
-
-            fig2, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
-            fig2.suptitle(blended_ratio)
-            ax2.set_xlabel('Density in cm$^{-3}$')
-            ax2.set_ylabel('New Ratio/Original')
-            ax1.ylabel('Blended Ratio')
-            ax1.semilogx(dens_bins, dens_total_orig, label='Original', color='b')
-            ax1.fill_between(dens_bins, dens_total_min, dens_total_max, label='Range', color='b', alpha=0.5)
-            ax2.axhline(y=1, color='b')
-            min = [x / y for x, y in zip(dens_total_min, dens_total_orig)]
-            max = [x / y for x, y in zip(dens_total_max, dens_total_orig)]
-            ax2.fill_between(dens_bins, min, max, color='b', alpha=0.5, label='Range')
-            plt.tight_layout()
-            fig2.subplots_adjust(hspace=0, top=0.86)
-            ax1.legend(fontsize='xx-small')
-            ax2.legend(fontsize='xx-small')
-
-            for number in range(1,10):
-                outfile = pathlib.Path(element+' '+str(z1)+' blended ratio Te '+str(number)+'.pdf')
-                if outfile.exists():
-                    continue
-                else:
-                    fig1.savefig(element + ' ' + str(z1) + ' blended ratio Te ' + str(number) + '.pdf')
-                    fig2.savefig(element + ' ' + str(z1) + ' blended ratio dens ' + str(number) + '.pdf')
-                    break
-            plt.show()
-            plt.close('all')
-
-def plot_blended_ratio(type, file):
-    fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
-    ax1.set_ylabel('Blended line ratio', fontsize=12)
-    ax2.set_ylabel('New Ratio/Original', fontsize=12)
-
-    if type == 'dens':
-        with fits.open(file) as hdul:
-            data = hdul[1].data
-            dens_bins, dens_total_min, dens_total_max, dens_total_orig = data['dens'], \
-                    data['dens_min'], data['dens_max'], data['dens_orig']
-        ax2.set_xlabel('Log Density (cm$^{-3}$)', fontsize=12)
-        ax1.semilogx(dens_bins, dens_total_orig, label='Original')
-        ax1.fill_between(dens_bins, dens_total_min, dens_total_max, label='Range', color='g', alpha=0.5)
-        ax2.axhline(y=1)
-        min = [x/y for x,y in zip(dens_total_min, dens_total_orig)]
-        max = [x/y for x,y in zip(dens_total_max, dens_total_orig)]
-        ax2.fill_between(dens_bins, min, max, color='g', alpha=0.5, label='Range')
-
-    elif type == 'temp':
-        with fits.open(file) as hdul:
-            data = hdul[1].data
-            temp_bins, Te_total_min, Te_total_max, Te_total_orig = data['temp'], \
-                    data['Te_min'], data['Te_max'], data['Te_orig']
-        ax2.set_xlabel('Log T(K)', fontsize=12)
-        ax1.semilogx(temp_bins, Te_total_orig, label='Original')
-        ax1.fill_between(temp_bins, Te_total_min, Te_total_max, label='Range', color='g', alpha=0.5)
-        ax2.axhline(y=1)
-        min = [x/y for x,y in zip(Te_total_min, Te_total_orig)]
-        max = [x/y for x,y in zip(Te_total_max, Te_total_orig)]
-        ax2.fill_between(temp_bins, min, max, color='g', alpha=0.5, label='Range')
-
-    plt.tight_layout()
-    fig.subplots_adjust(hspace=0)
-    ax1.legend(fontsize='xx-small')
-    ax2.legend(fontsize='xx-small')
-    a = file.split('.')
-    a = a[0].split('_')
-    name = a[0]+' '+a[1]+ ' blended ratio '
-    for number in range(1,10):
-        outfile = pathlib.Path(name + str(number) + '.fits')
-        if outfile.exists():
-            continue
-        else:
-            plt.savefig(name+str(number)+'.pdf')
-            break
-    plt.show()
-
-def four_line_diagnostic(Z, z1, Te, dens, vary, delta_r, Te_range={}, dens_range={}, type={}, num={}):
-    element = pyatomdb.atomic.Ztoelsymb(Z)
-
-    if type == {}:
-        type = 'both'
-        if Te_range == -1 or Te_range == {}: Te_range = (Te / 10, Te * 10)
-        if (dens_range == -1) or dens_range == {}: dens_range = (1, 1e16)
-    elif type == 'temp':
-        if Te_range == -1 or Te_range == {}: Te_range = (Te/10, Te*10)
-    elif type == 'dens':
-        if (dens_range == -1) or dens_range == {}: dens_range = (1, 1e16)
-    if num == {}: num = 8
-
-    if (Z % 2) == 0: list = {'r': (7, 1), 'f': (2, 1), 'i': (6, 1), 'i2': (5, 1)}
-    else: list = {'r': (7, 1), 'f': (2, 1), 'i': (4, 1), 'i2': (5, 1)}
-
-    for line, transition in list.items():
-        up, lo = transition[0], transition[1]
-        diagnostics = variableapec.run_line_diagnostics(Z, z1, up, lo, Te, dens, vary, delta_r, Te_range=Te_range,
-                                                              dens_range=dens_range, num=num)
-        print("For line", line, "diagnostics are:", diagnostics)
-        if line == 'r': r_diagnostics = diagnostics
-        elif line == 'f': f_diagnostics = diagnostics
-        elif line == 'i': i_diagnostics = diagnostics
-        elif line == 'i2': i2_diagnostics = diagnostics
-
-    # write diagnostics
-    if type == 'temp':
-        type, temp_bins1, Te_r_orig, Te_r_min, Te_r_max = [r_diagnostics.get(k) for k in r_diagnostics]
-        type2, temp_bins2, Te_f_orig, Te_f_min, Te_f_max = [f_diagnostics.get(k) for k in f_diagnostics]
-        type3, temp_bins3, Te_i_orig, Te_i_min, Te_i_max = [i_diagnostics.get(k) for k in i_diagnostics]
-        type4, temp_bins4, Te_i_orig2, Te_i_min2, Te_i_max2 = [i2_diagnostics.get(k) for k in i2_diagnostics]
-
-        table = Table([temp_bins1, Te_r_orig, Te_r_min, Te_r_max, Te_f_orig, Te_f_min, Te_f_max,
-                       Te_i_orig, Te_i_min, Te_i_max, Te_i_orig2, Te_i_min2, Te_i_max2], names=('temp',
-                       'r orig', 'r min', 'r max', 'f orig', 'f min', 'f max', 'i orig', 'i min', 'i max',
-                        'i2 orig', 'i2 min', 'i2 max'))
-
-        for number in range(1, 20, 1):
-            file = pathlib.Path(element + '_' + str(z1) + '_four_line_Te_' + str(number) + '.fits')
-            if file.exists():
-                continue
-            else:
-                table.write(element + '_' + str(z1) + '_four_line_Te_' + str(number) + '.fits', format='fits')
-                break
-    elif type == 'dens':
-        type, dens_bins1, dens_r_orig, dens_r_min, dens_r_max = [r_diagnostics.get(k) for k in r_diagnostics]
-        type2, dens_bins2, dens_f_orig, dens_f_min, dens_f_max = [f_diagnostics.get(k) for k in f_diagnostics]
-        type3, dens_bins3, dens_i_orig, dens_i_min, dens_i_max = [i_diagnostics.get(k) for k in i_diagnostics]
-        type4, dens_bins4, dens_i_orig2, dens_i_min2, dens_i_max2 = [i2_diagnostics.get(k) for k in i2_diagnostics]
-
-        table = Table([dens_bins1, dens_r_orig, dens_r_min, dens_r_max, dens_f_orig, dens_f_min, dens_f_max,
-                        dens_i_orig, dens_i_min, dens_i_max, dens_i_orig2, dens_i_min2, dens_i_max2], names=
-                       ('dens', 'r orig', 'r min', 'r max', 'f orig', 'f min', 'f max', 'i orig', 'i min', 'i max',
-                        'i2 orig', 'i2 min', 'i2 max'))
-
-        for number in range(1, 20, 1):
-            file = pathlib.Path(element + '_' + str(z1) + '_four_line_dens_' + str(number) + '.fits')
-            if file.exists():
-                continue
-            else:
-                table.write(element + '_' + str(z1) + '_four_line_dens_' + str(number) + '.fits', format='fits')
-                break
-    elif type == 'both':
-        t1, temps1, dens1, Te_r_orig, Te_r_min, Te_r_max, dens_r_orig, dens_r_min, dens_r_max = [r_diagnostics.get(k) for k in r_diagnostics]
-        t2, temps2, dens2, Te_f_orig, Te_f_min, Te_f_max, dens_f_orig, dens_f_min, dens_f_max = [f_diagnostics.get(k) for k in f_diagnostics]
-        t3, temps3, dens3, Te_i_orig, Te_i_min, Te_i_max, dens_i_orig, dens_i_min, dens_i_max = [i_diagnostics.get(k) for k in i_diagnostics]
-        t4, temps4, dens4, Te_i_orig2, Te_i_min2, Te_i_max2, dens_i_orig2, dens_i_min2, dens_i_max2, name4 = [i2_diagnostics.get(k) for k in i2_diagnostics]
-
-        table = Table([temps1, Te_r_orig, Te_r_min, Te_r_max, Te_f_orig, Te_f_min, Te_f_max,
-                       Te_i_orig, Te_i_min, Te_i_max, Te_i_orig2, Te_i_min2, Te_i_max2], names=('temp',
-                       'r orig', 'r min', 'r max', 'f orig', 'f min', 'f max', 'i orig', 'i min', 'i max',
-                        'i2 orig', 'i2 min', 'i2 max'))
-        table2 = Table([dens1, dens_r_orig, dens_r_min, dens_r_max, dens_f_orig, dens_f_min, dens_f_max,
-                        dens_i_orig, dens_i_min, dens_i_max, dens_i_orig2, dens_i_min2, dens_i_max2], names=
-            ('dens', 'r orig', 'r min', 'r max', 'f orig', 'f min', 'f max', 'i orig', 'i min', 'i max',
-             'i2 orig', 'i2 min', 'i2 max'))
-
-        for number in range(1, 20, 1):
-            file = pathlib.Path(element + '_' + str(z1) + '_four_line_Te_' + str(number) + '.fits')
-            if file.exists():
-                continue
-            else:
-                table2.write(element + '_' + str(z1) + '_four_line_dens_' + str(number) + '.fits', format='fits')
-                table.write(element + '_' + str(z1) + '_four_line_Te_' + str(number) + '.fits', format='fits')
-                break
-
-def g_ratio(Z, z1, Te, dens, vary, delta_r, Te_range={}, num={}, need_data=True, plot=True):
-
-    if (Te_range == {}) or (Te_range == -1): Te_range = (Te/10, Te*10)
-    if num == {}: num = 8
-    if need_data == True:
-        four_line_diagnostics(Z, z1, Te, dens, vary, delta_r, Te_range=Te_range, type='temp', num=num)
-
-    element = pyatomdb.atomic.Ztoelsymb(Z)
-    ion = pyatomdb.atomic.int_to_roman(z1)
-
-    # retrieve diagnostics
-    for number in range(20, 0, -1):
-        file = pathlib.Path(element + '_' + str(z1) + '_four_line_Te_' + str(number) + '.fits')
-        if file.exists():
-            hdul = fits.open(element + '_' + str(z1) + '_four_line_Te_' + str(number) + '.fits')
-            data = hdul[1].data
-            temp_bins, r_orig, r_min, r_max = data['temp'], data['r orig'], data['r min'], data['r max']
-            f_orig, f_min, f_max = data['f orig'], data['f min'], data['f max']
-            i_orig, i_min, i_max = data['i orig'], data['i min'], data['i max']
-            i2_orig, i2_min, i2_max = data['i2 orig'], data['i2 min'], data['i2 max']
-
-            hdul.close()
-            break
-        else:
-            continue
-
-    # do math
-    g_min, g_orig, g_max = [], [], []
-    for rmin, r, rmax, fmin, f, fmax, imin, i, imax, i2min, i2, i2max in zip(r_min, r_orig, r_max, f_min, f_orig, f_max, \
-                   i_min, i_orig, i_max, i2_min, i2_orig, i2_max):
-        orig = (f + i + i2) / r
-        g_orig.append(orig)
-
-        # error propagation for positive dg
-        dr, df, di, di2 = (rmax - r), (fmax - f), (imax - i), (i2max - i2)
-        r_term = (((-f - i - i2) / r ** 2) ** 2) * (dr ** 2)
-        f_term = df ** 2 / r ** 2
-        i_term = di ** 2 / r ** 2
-        i2_term = di2 ** 2 / r ** 2
-        dg = math.sqrt(r_term + f_term + i_term + i2_term)
-        g_max.append(orig + dg)
-
-        # error propagation for negative dg
-        dr, df, di, di2 = (r - rmin), (f - fmin), (i - imin), (i2 - i2min)
-        r_term = (((-f - i - i2) / r ** 2) ** 2) * (dr ** 2)
-        f_term = df ** 2 / r ** 2
-        i_term = di ** 2 / r ** 2
-        i2_term = di2 ** 2 / r ** 2
-        dg = math.sqrt(r_term + f_term + i_term + i2_term)
-        g_min.append(orig - dg)
-
-    if plot == True:
-        # temp dependent g ratio
-        fig, (ax_1, ax_2) = plt.subplots(nrows=2, sharex=True)
-        name = element + ' ' + ion + ' G ratio'
-        ax_1.set_xlabel('T (K)')
-        ax_1.set_ylabel(name)
-        ax_1.semilogx(temp_bins, g_orig, label='Original', color='b')
-        ax_1.fill_between(temp_bins, g_min, g_max, alpha=0.5, color='b',label="Range")
-        min = [a / b for a, b in zip(g_min, g_orig)]
-        max = [a / b for a, b in zip(g_max, g_orig)]
-        ax_2.axhline(y=1, color='b')
-        ax_2.fill_between(temp_bins, min, max, color='b', alpha=0.5, label='Range')
-        ax_2.set_ylabel('New Ratio/Original')
-        ax_1.legend(fontsize='xx-small')
-        ax_2.legend(fontsize='xx-small')
-        fig.tight_layout()
-        fig.subplots_adjust(hspace=0)
-        fig.savefig(element + '_' + ion + '_' + 'G ratio.pdf')
-
-        plt.show()
-
-    return {'temps': temp_bins, 'orig': g_orig, 'min': g_min, 'max':g_max}
-
-def r_ratio(Z, z1, Te, dens, vary, delta_r, dens_range={}, num={}, need_data=True, plot=True):
-
-    if (dens_range == {}) or (dens_range == -1): dens_range = (1, 1e16)
-    if num == {}: num = 8
-    if need_data == True:
-        four_line_diagnostics(Z, z1, Te, dens, vary, delta_r, dens_range=dens_range, type='dens', num=num)
-
-    element = pyatomdb.atomic.Ztoelsymb(Z)
-    ion = pyatomdb.atomic.int_to_roman(z1)
-
-    # retrieve diagnostics
-    for number in range(20, 0, -1):
-        file = pathlib.Path(element + '_' + str(z1) + '_four_line_dens_' + str(number) + '.fits')
-        if file.exists():
-            hdul = fits.open(element + '_' + str(z1) + '_four_line_dens_' + str(number) + '.fits')
-            data = hdul[1].data
-            dens_bins, r_orig, r_min, r_max = data['dens'], data['r orig'], data['r min'], data['r max']
-            f_orig, f_min, f_max = data['f orig'], data['f min'], data['f max']
-            i_orig, i_min, i_max = data['i orig'], data['i min'], data['i max']
-            i2_orig, i2_min, i2_max = data['i2 orig'], data['i2 min'], data['i2 max']
-            hdul.close()
-            break
-        else:
-            continue
-
-    # do math
-    R_orig, R_min, R_max = [], [], []
-    for rmin, r, rmax, fmin, f, fmax, imin, i, imax, i2min, i2, i2max in zip(r_min, r_orig, r_max, f_min,
-                   f_orig, f_max, i_min, i_orig, i_max,i2_min, i2_orig, i2_max):
-        orig = f / (i + i2)
-        R_orig.append(orig)
-
-        # error propagation for positive dg
-        dr, df, di, di2 = (rmax - r), (fmax - f), (imax - i), (i2max - i2)
-        f_term = df ** 2 / (i + i2) ** 2
-        i_term = di ** 2 * (-f / (i + i2) ** 2) ** 2
-        i2_term = di2 ** 2 * (-f / (i + i2) ** 2) ** 2
-        dR = math.sqrt(f_term + i_term + i2_term)
-        R_max.append(orig + dR)
-
-        # error propagation for negative dg
-        dr, df, di, di2 = (r - rmin), (f - fmin), (i - imin), (i2 - i2min)
-        f_term = df ** 2 / (i + i2) ** 2
-        i_term = di ** 2 * (-f / (i + i2) ** 2) ** 2
-        i2_term = di2 ** 2 * (-f / (i + i2) ** 2) ** 2
-        dR = math.sqrt(f_term + i_term + i2_term)
-        R_min.append(orig - dR)
-
-    if plot == True:
-        # density dependent R ratio
-        fig2, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
-        fig2.subplots_adjust(hspace=0)
-        name = element + ' ' + ion + ' R ratio'
-        ax1.set_ylabel(name)
-        ax1.set_xlabel('Density in cm$^{-3}$')
-        ax1.semilogx(dens_bins, R_orig, label='Original', color='b')
-        ax1.fill_between(dens_bins, R_min, R_max, alpha=0.5, color='b', label="Range")
-        ax1.legend(fontsize='xx-small')
-        min = [a / b for a, b in zip(R_min, R_orig)]
-        max = [a / b for a, b in zip(R_max, R_orig)]
-        ax2.axhline(y=1, color='b')
-        ax2.fill_between(dens_bins, min, max, color='b', alpha=0.5, label='Range')
-        ax2.set_ylabel('New Ratio/Original')
-        ax2.set_xlabel('Density in cm$^{-3}$')
-        ax2.legend(fontsize='xx-small')
-        fig2.savefig(element + '_' + ion + '_' + 'R ratio.pdf')
-        plt.show()
-
-    return {'dens': dens_bins, 'orig': R_orig, 'min': R_min, 'max': R_max}
-
 def find_CSD_change(Z, z1, delta_ionize, delta_recomb={}, Te={}, frac={}, varyir={}, datacache={}, printout=True):
     """ Find the change in CSD at specified temp or ion fraction.
     Default is applying random error from Gaussian distribution
@@ -4649,10 +3930,6 @@ def find_CSD_change(Z, z1, delta_ionize, delta_recomb={}, Te={}, frac={}, varyir
                     print(element, str(z1-1), "+ original temperature at", frac, "*peak is", Telist[index], "(Log(T) = ", numpy.log10(Telist[index]))
                     print("\n New temperature range in K is", min_temp, "to", max_temp, "i.e. dT =", orig_dt)
                     print("\n Log(T) range is", numpy.log10(min_temp), "to", numpy.log10(max_temp), "i.e. dLog(T) =", orig_dex_change)
-                    # print("\n\nThis also affects", element, str(z1), "+:")
-                    # print("Original temperature in K at", frac, "*peak was", Telist[next_index], "(Log(T) = ", numpy.log10(Telist[next_index]))
-                    # print("\n New temperature range in K is", next_min_temp, "to", next_max_temp, "i.e. dT =", next_dt)
-                    # print("\n Log(T) new range is", numpy.log10(next_min_temp), "to", numpy.log10(next_max_temp), "i.e. dLog(T) =", next_dex_change)
                     print("\n")
                 percent_change_Te.append(abs(orig_dt/Telist[index]))
 
@@ -4678,10 +3955,6 @@ def find_CSD_change(Z, z1, delta_ionize, delta_recomb={}, Te={}, frac={}, varyir
                     print(element, str(z1 - 1), "+ original abundance at", "%.2E" % Decimal(Te), "K =", orig, "(-Log10(X) =", -numpy.log10(orig), ')\n')
                     print("New abundance range is", min, "to", max, "i.e. d_abund =", dA)
                     print("\n(-Log10(X) new range is", -numpy.log10(min), "to", -numpy.log10(max), '), i.e. d_log_abund =', log_dA)
-                    # print("\n\n This also affects neighbor ion", element, str(z1), "+:")
-                    # print("\nOriginal abundance at", "%.2E" % Decimal(Te), "K =", next_orig, "(-Log10(X) =", -numpy.log10(next_orig), ')\n')
-                    # print("New abundance range is", next_min, "to", next_max, "i.e. d_abund =", next_dA)
-                    # print("\n(-Log10(X) new range is", -numpy.log10(next_min), "to", -numpy.log10(next_max), '), i.e. d_log_abund =', next_log_dA)
                     print("\n")
                 percent_change_abund.append(abs(dA/orig))
 
@@ -4715,21 +3988,11 @@ def find_CSD_change(Z, z1, delta_ionize, delta_recomb={}, Te={}, frac={}, varyir
                     print("\n New temperature range in K is", min_temp, "to", max_temp, "i.e. dT =", orig_dt)
                     print("\n Log(T) range is", numpy.log10(min_temp), "to", numpy.log10(max_temp), "i.e. dLog(T) =",
                           orig_dex_change)
-                    # print("\n\nThis also affects", element, str(z1), "+:")
-                    # print("Original temperature in K at", frac, "*peak was", Telist[next_index], "(Log(T) = ",
-                    #       numpy.log10(Telist[next_index]))
-                    # print("\n New temperature range in K is", next_min_temp, "to", next_max_temp, "i.e. dT =", next_dt)
-                    # print("\n Log(T) new range is", numpy.log10(next_min_temp), "to", numpy.log10(next_max_temp),
-                    #       "i.e. dLog(T) =", next_dex_change)
                     print("\n")
                 percent_change_Te.append(abs(orig_dt / Telist[index]))
 
             # if temperature given, find abundance change in new CSD at that temperature
             if Te != {}:
-                # original abundance
-                # pop_fraction = pyatomdb.apec.solve_ionbal_eigen(Z, Te, teunit='K', datacache=d)
-                # orig = pop_fraction[z1 - 1]
-                # next_orig = pop_fraction[z1]
                 orig = numpy.interp(Te, Telist, eqpopn[:, z1-1])
                 min = numpy.interp(Te, Telist, negpopn[:, z1 - 1])
                 max = numpy.interp(Te, Telist, pospopn[:, z1 - 1])
@@ -4749,12 +4012,6 @@ def find_CSD_change(Z, z1, delta_ionize, delta_recomb={}, Te={}, frac={}, varyir
                     print("New abundance range is", min, "to", max, "i.e. d_abund =", dA)
                     print("\n(-Log10(X) new range is", -numpy.log10(min), "to", -numpy.log10(max), '), i.e. d_log_abund =',
                           log_dA)
-                    # print("\n\n This also affects neighbor ion", element, str(z1), "+:")
-                    # print("\nOriginal abundance at", "%.2E" % Decimal(Te), "K =", next_orig, "(-Log10(X) =",
-                    #       -numpy.log10(next_orig) + ')\n')
-                    # print("New abundance range is", next_min, "to", next_max, "i.e. d_abund =", next_dA)
-                    # print("\n(-Log10(X) new range is", -numpy.log10(next_min), "to",
-                    #       -numpy.log10(next_max) + '), i.e. d_log_abund =', next_log_dA)
                     print("\n")
                 percent_change_abund.append(abs(dA / orig))
 
@@ -5179,7 +4436,7 @@ def peak_frac_sensitivity(Z, errors, z1_list={}, makefiles=True, plot=True):
                         writer.writerow(data)
                     writer.writerow({values.colnames[0]:' '})
                 break
-=======
+
     Z, z1, Te, dens, process, delta_r, transition, transition_2, \
     all_levels, nlev, npnts, show, wavelen, corrthresh, e_signif = [inputs.get(k) for k in inputs]
     
@@ -5373,4 +4630,3 @@ def check_sensitivity(Z, z1, Te, dens, process, delta_r, transition, transition_
     elif show == True:
         plt.show()
              
->>>>>>> d62ccbc3c5cec6ddf9ffad10769e49c748c5abdf

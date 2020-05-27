@@ -1,11 +1,10 @@
-<<<<<<< HEAD
 """
 This module contains methods for looking at emission and line ratios
 as a function of varying atomic data from the AtomDB files. Requires
 PyAtomdB and Python 3."""
 
 # Keri Heuer
-# Version 2.0, March 25, 2020
+# Version 2.0, May 27, 2020
 
 import matplotlib.pyplot as plt, matplotlib.ticker as mtick, scipy.stats as stats, \
 pyatomdb, numpy, pickle, pathlib, csv, os, errno, hashlib, requests, urllib.request, \

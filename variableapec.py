@@ -11,6 +11,7 @@ pyatomdb, numpy, pickle, pathlib, csv, os, errno, hashlib, requests, urllib.requ
 urllib.parse, urllib.error, time, subprocess, shutil, wget, glob, datetime, ftplib, \
 pathlib, collections, operator, requests, matplotlib.pylab as pylab, glob, math
 from io import StringIO
+from matplotlib.lines import Line2D
 from astropy.io import fits
 from astropy.table import Table, Column
 from matplotlib.offsetbox import AnchoredText
@@ -54,7 +55,7 @@ def ionize(Z, z1, Te, dens, in_range, pop_fraction, datacache):
         else:
             waves.append(b)
     ion_linelist['lambda'] = waves
-    ion_linelist['epsilon'] = [x['EINSTEIN_A'] * ion_levpop[x['UPPER_LEV'] - 1] for x in in_range]
+    ion_linelist['epsilon'] = [x['EINSTEIN_A'] * pop_fraction[z1_drv-1] * ion_levpop[x['UPPER_LEV'] - 1] for x in in_range]
     return ion_linelist
             
 def recombine(Z, z1, Te, dens, in_range, pop_fraction, datacache):
@@ -90,7 +91,7 @@ def recombine(Z, z1, Te, dens, in_range, pop_fraction, datacache):
         if numpy.isnan(b): waves.append(a)
         else: waves.append(b)
     recomb_linelist['lambda'] = waves
-    recomb_linelist['epsilon'] = [x['EINSTEIN_A']*recomb_levpop[x['UPPER_LEV']-1] for x in in_range]
+    recomb_linelist['epsilon'] = [x['EINSTEIN_A'] * pop_fraction[z1_drv-1] * recomb_levpop[x['UPPER_LEV']-1] for x in in_range]
     return recomb_linelist
 
 def set_up(Z, z1, Te, dens, extras={}):
@@ -138,7 +139,7 @@ def set_up(Z, z1, Te, dens, extras={}):
     # set up complete line list (emiss only due to excitation at this point)
     full_linelist = numpy.zeros(len(in_range), dtype=pyatomdb.apec.generate_datatypes('linetype'))
     full_linelist['lambda'] = linelist['lambda']
-    full_linelist['epsilon'] = linelist['epsilon']*pop_fraction[z1-1]
+    full_linelist['epsilon'] = linelist['epsilon'] * pop_fraction[z1-1]
 
     # now add emissivity from ionization and recombination to excitation linelist (depending on z1)
     if z1 == 1:  # skip ionization
@@ -1399,7 +1400,7 @@ def r_ratio(Z, z1, Te, vary, delta_r, dens_range={}, num=10, need_data=True, plo
     if plot == True:
         plot_ratio(fnames, ratio='r')
 
-def plot_ratio(fnames, ratio={}, cmap='hsv', show=True, labels=[]):
+def plot_ratio(fnames, ratio={}, cmap='hsv', opacity=0.4, show=True, labels=[]):
     """ Plots line ratio and error from specified files.
     fnames : str or list
         contains fits file names of runs to plot
@@ -1411,19 +1412,19 @@ def plot_ratio(fnames, ratio={}, cmap='hsv', show=True, labels=[]):
     cmap : str
         name of matplotlib color map to use
         default is 'hsv'
+    opacity : float
+        float less than 1 supplied as alpha arg to plt.plot()
     show : boolean
         Plots to screen if True
         (plot will be saved as pdf either way)
     """
     print("Plotting files:", fnames)
-    from matplotlib.ticker import FormatStrFormatter
 
-    alphas = [0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
     if isinstance(fnames, (list, tuple)):
         clist = get_cmap(len(fnames)+1, name=cmap)
-        alphas = [0.5]*len(fnames)
+        alphas = [opacity] * len(fnames)
     else:
-        alphas, fnames = [alphas[0]], [fnames]
+        alphas, fnames = [opacity], [fnames]
         clist = get_cmap(1, name='plasma')
     if labels == []:
         labels = ['']*len(fnames)
@@ -1449,13 +1450,15 @@ def plot_ratio(fnames, ratio={}, cmap='hsv', show=True, labels=[]):
                 if 'temp' in file:
                     type = 'temp'
                     temps, Te_orig, Te_min, Te_max = data['temps'], data['Te_orig'], data['Te_min'], data['Te_max']
-                    #density = "Ne = " + "{:.0e}".format(data['density'][0]) + " cm$^{-3}$"
+                    string = "{:.0e}".format(data['density'][0]).split("e+")
+                    density = "$N_e$ = " + "{}\\times 10^{}".format(string[0], round(int(string[1]))) + " cm$^{-3}$"
 
                 elif 'dens' in file:
                     ax2.set_xlabel('Density in cm$^{-3}$', fontsize=14)
                     type = 'dens'
                     dens, dens_orig, dens_min, dens_max = data['dens'], data['dens_orig'], data['dens_min'], data['dens_max']
-                    #temperature = "Te = " + "{:.0e} K".format(data['temperatures'][0])
+                    string = "{:.0e}".format(data['temperatures'][0]).split("e+")
+                    temperature = "$T_e$ = " + "{}\\times 10^{}$K".format(string[0], round(int(string[1])))
 
             if type == 'temp':  # plot emissivity versus temperature
                 ax.semilogx(temps, Te_orig, color=clist(current))
@@ -1503,7 +1506,8 @@ def plot_ratio(fnames, ratio={}, cmap='hsv', show=True, labels=[]):
                 f_orig, f_min, f_max = data['f orig'], data['f min'], data['f max']
                 i_orig, i_min, i_max = data['i orig'], data['i min'], data['i max']
                 i2_orig, i2_min, i2_max = data['i2 orig'], data['i2 min'], data['i2 max']
-                #temperature = "Te = " + "{:.0e} K".format(data['temperatures'][0])
+                string = "{:.0e}".format(data['temperatures'][0]).split("e+")
+                temperature = "$T_e$ = " + "{}\\times 10^{}$K".format(string[0], round(int(string[1])))
 
             # do math
             R_orig, R_min, R_max = [], [], []
@@ -1557,8 +1561,8 @@ def plot_ratio(fnames, ratio={}, cmap='hsv', show=True, labels=[]):
                 f_orig, f_min, f_max = data['f orig'], data['f min'], data['f max']
                 i_orig, i_min, i_max = data['i orig'], data['i min'], data['i max']
                 i2_orig, i2_min, i2_max = data['i2 orig'], data['i2 min'], data['i2 max']
-                density = "Ne = " + "{:.0e}".format(data['density'][0]) + " cm$^{-3}$"
-                #density = "Ne = 1 cm$^{-3}$"
+                string = "{:.0e}".format(data['density'][0]).split("e+")
+                density = "$N_e$ = " + "{}\\times 10^{}".format(string[0], round(int(string[1]))) + " cm$^{-3}$"
             # do math
             g_min, g_orig, g_max = [], [], []
             for rmin, r, rmax, fmin, f, fmax, imin, i, imax, i2min, i2, i2max in zip(r_min, r_orig, r_max, f_min, f_orig,
@@ -1609,7 +1613,8 @@ def plot_ratio(fnames, ratio={}, cmap='hsv', show=True, labels=[]):
                 with fits.open(file) as hdul:
                     data = hdul[1].data
                     dens_bins, dens_total_min, dens_total_max, dens_total_orig = data['dens'], data['dens_min'], data['dens_max'], data['dens_orig']
-                    temperature = "Te = " + "{:.0e} K".format(data['temperatures'][0])
+                    string = "{:.0e}".format(data['temperatures'][0]).split("e+")
+                    temperature = "$T_e$ = " + "{}\\times 10^{}$K".format(string[0], round(int(string[1])))
                 ax.semilogx(dens_bins, dens_total_orig, color=clist(current))
                 if label == '':
                     ax.fill_between(dens_bins, dens_total_min, dens_total_max, label=temperature, color=clist(current), alpha=alphas[current])
@@ -1625,7 +1630,8 @@ def plot_ratio(fnames, ratio={}, cmap='hsv', show=True, labels=[]):
                 with fits.open(file) as hdul:
                     data = hdul[1].data
                     temp_bins, Te_total_min, Te_total_max, Te_total_orig = data['temp'], data['Te_min'], data['Te_max'], data['Te_orig']
-                    density = "Ne = " + "{:.0e}".format(data['density'][0]) + " cm$^{-3}$"
+                    string = "{:.0e}".format(data['density'][0]).split("e+")
+                    density = "$N_e$ = " + "{}\\times 10^{}".format(string[0], round(int(string[1]))) + " cm$^{-3}$"
                 ax.semilogx(temp_bins, Te_total_orig)
                 if label == '':
                     ax.fill_between(temp_bins, Te_total_min, Te_total_max, label=density, color=clist(current), alpha=alphas[current])
@@ -1671,22 +1677,156 @@ def solve_ionrec(Telist, ionlist, reclist, Z):
         popn[ite, :] = arr
     return popn
 
+def plot_temp_change(Z, errors, varyir={}, z1={}, Te_unit='keV', type='f', vlines={}):
+    """ Plots temperature error from varying rates
+    by fractional error delta_r. Varyir is either 'i' or 'r'
+    if z1 is specified, or default of {} to vary all rate coefficients
+    with errors selected from either flat distribution (type = 'f')
+    or Gaussian (type = 'g') with max error = delta_r.
+    Error can be a float (single fractional error)
+    or a list/tuple of floats if vary = 'i' or 'r'.
+    Te_unit is either 'keV', 'K', 'dex' (i.e. log10(Te).
+    vlines is a list or tuple of any fractional abundance (i.e. 0.5)
+    to draw a vertical line at."""
+
+    if varyir != {} and z1 == {}:
+        z1 = input("Must specify z1: ")
+    elif varyir == {} and z1 != {}:
+        varyir = input("Must specify 'i' or 'r' for z1 to vary: ")
+    if varyir == {} and isinstance(errors, (list, tuple)):
+        errors = float(input("For Monte Carlo calculations of temp change for all z1, errors must be single fractional error: "))
+
+    fig, ax = plt.subplots()
+    fig.subplots_adjust(left=0.15, right=0.95, top=0.95)
+    ax.set_xlabel('Ionic Fraction')
+    if Te_unit.lower() == 'kev': ax.set_ylabel('Temperature error $\\Delta$keV')
+    elif Te_unit.lower() == 'k': ax.set_ylabel('Temperature error $\\Delta$K')
+    elif Te_unit.lower() == 'dex': ax.set_ylabel('Temperature error $\\Deltalog_10$T')
+
+    Telist = numpy.logspace(4,9,1251)
+    #vary one rate
+    if varyir != {} and z1 != {}:
+        if isinstance(errors, float): errors = [errors]
+        clist, eqpopn = get_cmap(len(errors)+2), get_orig_popn(Z, Telist)
+        peak = numpy.max(eqpopn[:, z1 - 1])
+        xticks = [x + 1 for x in range(len(numpy.arange(0, round(peak, 1), 0.1)))]
+        xticks = xticks + [numpy.max(xticks) + 1 + x for x in range(len(xticks))]
+        xticks = xticks + [numpy.max(xticks) + 1]
+        fractions = [round(x, 1) for x in numpy.arange(0, round(peak, 1), 0.1)] + [round(peak, 1)] + \
+                    [round(x, 1) for x in numpy.arange(0, round(peak, 1),0.1)[::-1]]
+        ax.set_xticks(xticks)
+        ax.set_xticklabels(fractions)
+        print("ticks:", xticks)
+        print("fractions:", fractions)
+        print("comparing lengths of ticks:", len(xticks), "and fractions:", len(fractions))
+        for i, delta_r in enumerate(errors):
+            eqpopn, pospopn, negpopn = get_new_popns(Telist, Z, z1, varyir, delta_r)
+            peak, index, errors = numpy.max(eqpopn[:, z1 - 1]), numpy.argmax(eqpopn[:, z1 - 1]), []
+
+            #do rising curve
+            for frac in numpy.arange(0,round(peak), 0.1):
+                print("frac is", frac)
+                min_temp = numpy.interp(frac, negpopn[:index, z1 - 1][::-1], Telist[:index][::-1])
+                max_temp = numpy.interp(frac, pospopn[:index, z1 - 1][::-1], Telist[:index][::-1])
+                delta_te, delta_dex = max_temp - min_temp, numpy.log10(max_temp) - numpy.log10(min_temp)
+                delta_kev = (max_temp/11604525.0061657) - (min_temp/11604525.0061657)
+                if Te_unit.lower() == 'kev': errors.append(abs(delta_kev))
+                elif Te_unit.lower() == 'k': errors.append(abs(delta_te))
+                elif Te_unit.lower() == 'dex': errors.append(abs(delta_dex))
+                if frac in vlines:
+                    tick = numpy.interp(frac, fractions, xticks)
+                    ax.axvline(x=tick, color='grey', linestyle='--', alpha=0.3)
+
+            #do peak
+            min_temp = numpy.interp(peak, negpopn[:, z1-1][::-1], Telist[::-1])
+            max_temp = numpy.interp(peak, pospopn[:, z1-1][::-1], Telist[::-1])
+            delta_te, delta_dex = max_temp - min_temp, numpy.log10(max_temp) - numpy.log10(min_temp)
+            delta_kev = (max_temp / 11604525.0061657) - (min_temp / 11604525.0061657)
+            if Te_unit.lower() == 'kev': errors.append(abs(delta_kev))
+            elif Te_unit.lower() == 'k': errors.append(abs(delta_te))
+            elif Te_unit.lower() == 'dex': errors.append(abs(delta_dex))
+            print("peak frac is", peak)
+            tick = numpy.interp(peak, fractions, xticks)
+            ax.axvline(x=tick, color='b', linestyle='--', alpha=0.3)
+
+            #do falling curve
+            for frac in numpy.arange(0, round(peak), 0.1)[::-1]:
+                print("frac is", frac)
+                min_temp = numpy.interp(frac, negpopn[index:, z1 - 1][::-1], Telist[index:][::-1])
+                max_temp = numpy.interp(frac, pospopn[index:, z1 - 1][::-1], Telist[index:][::-1])
+                delta_te, delta_dex = max_temp - min_temp, numpy.log10(max_temp) - numpy.log10(min_temp)
+                delta_kev = (max_temp / 11604525.0061657) - (min_temp / 11604525.0061657)
+                if Te_unit.lower() == 'kev': errors.append(abs(delta_kev))
+                elif Te_unit.lower() == 'k': errors.append(abs(delta_te))
+                elif Te_unit.lower() == 'dex': errors.append(abs(delta_dex))
+                if frac in vlines: ax.axvline(x=frac, color='grey', linestyle='--', alpha=0.3)
+
+            ax.plot(xticks, errors, color=clist(i), label=str(delta_r * 100) + '%')
+            print("errors:", errors)
+        ax.legend(fontsize='xx-small', loc='upper right')
+        # if vlines != {}:
+        #     for x in vlines:
+        #         x_tick = numpy.interp(x, fractions, xticks)
+        #         if isinstance(x_tick, (float, int)): ax.axvline(x=x_tick, color='grey', linestyle='--', alpha=0.3)
+        #         else:
+        #             for tick in x_tick: ax.axvline(x=tick, color='grey', linestyle='--', alpha=0.3)
+
+    #vary all rates
+    else:
+        if type == 'f':
+            eqpopn, negpopn, pospopn = monte_carlo_csd(Z, delta_r, delta_r, type='f')
+        elif type == 'g':
+            eqpopn, negpopn, pospopn = monte_carlo_csd(Z, delta_r, delta_r, type='g')
+
+        clist, errors = get_cmap(Z+2), []
+
+        # do rising curve
+        for frac in numpy.arange(round(numpy.min(eqpopn[:, z1_test - 1])), round(peak), 0.05):
+            min_temp = numpy.interp(frac, negpopn[:index, z1_test - 1][::-1], Telist[:index][::-1])
+            max_temp = numpy.interp(frac, pospopn[:index, z1_test - 1][::-1], Telist[:index][::-1])
+            delta_te, delta_dex = max_temp - min_temp, numpy.log10(max_temp) - numpy.log10(min_temp)
+            delta_kev = (max_temp / 11604525.0061657) - (min_temp / 11604525.0061657)
+            if frac != round(peak):
+                if Te_unit.lower() == 'kev': errors.append(delta_kev)
+                elif Te_unit.lower() == 'k': errors.append(delta_te)
+                elif Te_unit.lower() == 'dex': errors.append(delta_dex)
+
+        # do falling curve
+        for frac in numpy.arange(round(peak), round(numpy.min(eqpopn[:, z1_test - 1])), -0.05):
+            min_temp = numpy.interp(frac, negpopn[index:, z1_test - 1][::-1], Telist[index:][::-1])
+            max_temp = numpy.interp(frac, pospopn[index:, z1_test - 1][::-1], Telist[index:][::-1])
+            delta_te, delta_dex = max_temp - min_temp, numpy.log10(max_temp) - numpy.log10(min_temp)
+            delta_kev = (max_temp / 11604525.0061657) - (min_temp / 11604525.0061657)
+            if Te_unit.lower() == 'kev': errors.append(delta_kev)
+            elif Te_unit.lower() == 'k': errors.append(delta_te)
+            elif Te_unit.lower() == 'dex': errors.append(delta_dex)
+
+        ax.plot((numpy.arange(round(numpy.min(eqpopn[:, z1_test - 1]))), round(peak), 0.05), errors, color=clist(i),
+                label=str(delta_r * 100) + '%')
+        ax.legend(fontsize='xx-small', loc='upper right')
+        if vlines != {}:
+            for x in vlines: ax.axvline(x=x, color='grey', linestyle='--', alpha=0.3)
+
+    element = pyatomdb.atomic.Ztoelsymb(Z)
+    if z1 != {}:
+        ion = pyatomdb.atomic.int_to_roman(z1)
+        plt.savefig(element+' '+ion+' temp change.pdf')
+    else:
+        plt.savefig(element+' temp changes.pdf')
+    plt.show()
+    plt.close('all')
+
 def find_temp_change(Z, z1, frac, delta_r):
-  #factor = delta_r
   Telist = numpy.logspace(4, 9, 1251)
-  element = pyatomdb.atomic.Ztoelsymb(Z)
-  z1_test = z1
+  element, z1_test = pyatomdb.atomic.Ztoelsymb(Z), z1
 
   # Change ionization
   varyir = 'i'
-
   eqpopn, pospopn, negpopn = get_new_popns(Telist, Z, z1, varyir, delta_r)
 
   # find peak temperatures
-  peak = numpy.max(eqpopn[:, z1_test - 1])
-  index = numpy.argmax(eqpopn[:, z1_test-1])
-  next_peak = numpy.max(eqpopn[:, z1_test])
-  next_index = numpy.argmax(eqpopn[:, z1_test])
+  peak, index = numpy.max(eqpopn[:, z1_test - 1]), numpy.argmax(eqpopn[:, z1_test-1])
+  next_peak, next_index = numpy.max(eqpopn[:, z1_test]), numpy.argmax(eqpopn[:, z1_test])
 
   print("Original abundance at", frac, "*peak is", peak, "or in -Log10T =", -numpy.log10(frac*peak))
   print("New range of", frac, "*peak is", numpy.max(negpopn[:, z1_test-1]), "to", numpy.max(pospopn[:, z1_test-1]))
@@ -1698,13 +1838,10 @@ def find_temp_change(Z, z1, frac, delta_r):
   max_temp = numpy.interp(frac * peak, pospopn[index:, z1_test - 1][::-1], Telist[index:][::-1])
   next_max_temp = numpy.interp(frac * next_peak, pospopn[:next_index, z1_test], Telist[:next_index])
 
-  orig_dt = max_temp - min_temp
-  orig_dex_change = numpy.log10(max_temp) - numpy.log10(min_temp)
-  next_dt = next_max_temp - next_min_temp
-  next_dex_change = numpy.log10(next_max_temp) - numpy.log10(next_min_temp)
+  orig_dt, orig_dex_change = max_temp - min_temp, numpy.log10(max_temp) - numpy.log10(min_temp)
+  next_dt, next_dex_change = next_max_temp - next_min_temp, numpy.log10(next_max_temp) - numpy.log10(next_min_temp)
 
   print("Ionize - comparing temps: orig", Telist[index], "min:", min_temp, "max:", max_temp)
-
 
   dex_changes = {'Uncertainty': '+/-' + str(delta_r * 100) + '%', 'Ion frac': str(frac) + ' peak',
                  'Unit': 'dex', element + ' ' + str(z1_test - 1) + '+ (ionize)': str(orig_dex_change),
@@ -1722,10 +1859,8 @@ def find_temp_change(Z, z1, frac, delta_r):
   eqpopn, pospopn, negpopn = get_new_popns(Telist, Z, z1, varyir, delta_r)
 
   # find peak temperatures
-  peak = numpy.max(eqpopn[:, z1_test - 1])
-  index = numpy.argmax(eqpopn[:, z1_test-1])
-  next_peak = numpy.max(eqpopn[:, z1_test])
-  next_index = numpy.argmax(eqpopn[:, z1_test])
+  peak, index = numpy.max(eqpopn[:, z1_test - 1]), numpy.argmax(eqpopn[:, z1_test-1])
+  next_peak, next_index = numpy.max(eqpopn[:, z1_test]), numpy.argmax(eqpopn[:, z1_test])
 
   #interpolate
   min_temp = numpy.interp(frac * peak, negpopn[index:, z1_test - 1][::-1], Telist[index:][::-1])
@@ -1733,10 +1868,8 @@ def find_temp_change(Z, z1, frac, delta_r):
   max_temp = numpy.interp(frac * peak, pospopn[index:, z1_test - 1][::-1], Telist[index:][::-1])
   next_max_temp = numpy.interp(frac * next_peak, pospopn[:next_index, z1_test], Telist[:next_index])
 
-  orig_dt = max_temp - min_temp
-  orig_dex_change = numpy.log10(max_temp) - numpy.log10(min_temp)
-  next_dt = next_max_temp - next_min_temp
-  next_dex_change = numpy.log10(next_max_temp) - numpy.log10(next_min_temp)
+  orig_dt, orig_dex_change = max_temp - min_temp, numpy.log10(max_temp) - numpy.log10(min_temp)
+  next_dt, next_dex_change = next_max_temp - next_min_temp, numpy.log10(next_max_temp) - numpy.log10(next_min_temp)
 
   print("Recomb - comparing temps: orig", Telist[index], "min:", min_temp, "max:", max_temp)
   #update with recomb data
@@ -1913,7 +2046,7 @@ def monte_carlo_csd(Z, max_ionize, max_recomb, runs=100, Te_range=[1e4,1e9], typ
     or a dict of individual errors with ion z1 being the key,
     i.e. max_ionize = {z1: fractional error}.
     Type is either 'f' (default) for flat distribution or 'g' for Gaussian.
-    Default is 100 Monte Carlo runs, Te range of 10e4 to 10e9 K, and plot=False.
+    Default is 100 Monte Carlo runs, Te range of 1e4 to 1e9 K, and plot=False.
     If need varied eigenfiles, set makefiles=True."""
 
     if Telist == {}: Telist = numpy.logspace(numpy.log10(Te_range[0]), numpy.log10(Te_range[1]), 1251)
@@ -3144,7 +3277,7 @@ def get_ionfrac(Z, Te, delta_r, varyir=False, Teunit='K', z1=[]):
         ret = {'min': min, 'median': median, 'max': max}
     return ret
 
-def affected_lines(Z, z1, up, lo, Te, dens, vary, delta_r, corrthresh=1e-4, e_signif=1e-20, wavelen={}, makefiles=False):
+def affected_lines(Z, z1, up, lo, Te, dens, vary, delta_r, corrthresh=1e-4, e_signif=1e-20, wavelen={}, makefiles=True, observed_only=False):
     """ Varies Z, z1 'exc' or 'A' by delta_r at specified Te and dens
     and returns table of affected lines with original epsilon, dE/dR and dE/E,
     sorted by greatest change in emissivity dE/E to smallest.
@@ -3176,6 +3309,16 @@ def affected_lines(Z, z1, up, lo, Te, dens, vary, delta_r, corrthresh=1e-4, e_si
     if e_signif != {}:
         new_table = new_table[new_table['Epsilon_orig'] >= e_signif]
 
+    if observed_only == True:
+        observed = Table(names=[x for x in new_table.colnames])
+        ladat = pyatomdb.atomdb.get_data(Z, z1, 'LA', datacache=d)
+        in_range = ladat[1].data
+        for row in new_table:
+            for x in in_range:
+                if (x['UPPER_LEV'], x['LOWER_LEV']) == (row['Upper'], row['Lower']):
+                    lambda_obs, lambda_theory = x['WAVE_OBS'], x['WAVELEN']
+                    if numpy.isnan(lambda_obs) == False: observed.add_row([row[x] for x in new_table.colnames])
+
     if makefiles == True:
         for number in range(1, 20):
             fname = element + str(z1) + ' affected lines ' + str(number) + '.csv'
@@ -3184,11 +3327,13 @@ def affected_lines(Z, z1, up, lo, Te, dens, vary, delta_r, corrthresh=1e-4, e_si
                 continue
             else:
                 with open(fname, mode='w') as csv_file:
-                    writer = csv.DictWriter(csv_file, fieldnames=new_table.colnames)
+                    if observed_only == True: t = observed
+                    else: t = new_table
+                    writer = csv.DictWriter(csv_file, fieldnames=t.colnames)
                     writer.writeheader()
-                    for row in new_table:
+                    for row in t:
                         data = {}
-                        for col in new_table.colnames:
+                        for col in t.colnames:
                             data.update({col: row[col]})
                         writer.writerow(data)
                 break
@@ -3435,26 +3580,14 @@ def temps_of_interest(Z, z1, Telist):
     """Returns dict of temperatures in K and labels of where ion is at
     1%, 10%, peak fractional abundance, and back down to 10% and 1%."""
 
-    z1_test = z1
-    ionlist = numpy.zeros([len(Telist), Z])
-    reclist = numpy.zeros([len(Telist), Z])
-
-    # get orig rates
-    for z1 in range(1, Z + 1):
-        iontmp, rectmp = pyatomdb.atomdb.get_ionrec_rate(Telist, False, Z=Z, z1=z1, extrap=True)
-
-        ionlist[:, z1 - 1] = iontmp
-        reclist[:, z1 - 1] = rectmp
-    eqpopn = solve_ionrec(Telist, ionlist, reclist, Z)
-
-    fracs = [1e-2, 0.1]
-    peak = numpy.argmax(eqpopn[:, z1_test - 1])
-    increasing_temps = numpy.interp(fracs, eqpopn[:peak, z1_test - 1], Telist[:peak])
-    decreasing_temps = numpy.interp(fracs, eqpopn[peak:, z1_test - 1][::-1], Telist[peak:][::-1])
+    eqpopn, fracs = get_orig_popn(Z, Telist), [1e-2, 0.1]
+    peak = numpy.argmax(eqpopn[:, z1 - 1])
+    increasing_temps = numpy.interp(fracs, eqpopn[:peak, z1 - 1], Telist[:peak])
+    decreasing_temps = numpy.interp(fracs, eqpopn[peak:, z1 - 1][::-1], Telist[peak:][::-1])
     temp_bins = numpy.array([increasing_temps[0], increasing_temps[1], Telist[peak], decreasing_temps[1], decreasing_temps[0]])
     return temp_bins
 
-def line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, temps={}, dens=1):
+def line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, temps={}, dens=1, trans_labels={}):
     """ Calculates fractional change in emissivity dE/E for
     specified Z (element), z1 (ion charge+1), up, lo line.
     Vary either 'exc' or 'A' for each transition in trans_list
@@ -3468,7 +3601,7 @@ def line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, temps={}, dens=1):
     """
 
     if temps == 'peak': temps = [find_peak_Te]
-    if isinstace(temps, int) or isinstance(temps, float): temps = [temps]
+    if isinstance(temps, int) or isinstance(temps, float): temps = [temps]
     elif temps == {}: temps = temps_of_interest(Z, z1, numpy.logspace(4,9,1251))
 
     element = pyatomdb.atomic.Ztoelsymb(Z)
@@ -3499,7 +3632,10 @@ def line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, temps={}, dens=1):
 
     for a in range(len(trans_list)):
         transition = trans_list[a]
-        legend_labels.append(Line2D([0], [0], marker=markers[a], label=str(transition[0]) + '->' + str(transition[1])))
+        if trans_labels == {}:
+            legend_labels.append(Line2D([0], [0], marker=markers[a], label=str(transition[0]) + '->' + str(transition[1])))
+        else:
+            legend_labels.append(Line2D([0], [0], marker=markers[a], label=trans_labels[a]))
         for b in range(len(temps)):
             Te, changes = temps[b], []
             legend_labels.append(Line2D([0], [0], color=clist(b), label=temp_str[b]))
@@ -3725,8 +3861,11 @@ def error_analysis(Z, z1, up, lo, Te, dens, errors, linewidth=2.5, filename={}):
     Default file generated is ErrorAnalysis.pdf"""
 
     print("Linewidth is", linewidth, "eV")
-    if isinstance(errors, float): delta_ionize = delta_recomb = errors
-    elif isinstance(errors, (tuple, list)): delta_ionize, delta_recomb = errors[0], errors[1]
+    if isinstance(errors, (tuple, list)): delta_ionize, delta_recomb = errors[0], errors[1]
+    else:
+        delta_ionize = errors
+        delta_recomb = errors
+        print("Using", delta_ionize, "as ionize error and", delta_recomb, "as recomb error")
     if filename == {}: filename = 'ErrorAnalysis'
     if '' in filename:
         filename = filename.split()

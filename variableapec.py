@@ -352,6 +352,7 @@ def vary_exc(inputs, values, which_transition):
 
         # find new level populations and get new epsilon values from excitation
         new_lev_pop = numpy.linalg.solve(new_matrix, B)
+        new_lev_pop *= pop_fraction[z1 - 1]
 
         # new_rates = rates.copy()
         # for i in range(len(new_rates)):
@@ -360,8 +361,7 @@ def vary_exc(inputs, values, which_transition):
         #     elif (init[i], final[i]) == (initial_lev - 1, initial_lev - 1):
         #         new_rates[i] -= (x - old_rate)  # diagonal term
         # new_lev_pop = pyatomdb.apec.solve_level_pop(init, final, new_rates, False)
-
-        new_lev_pop *= pop_fraction[z1 - 1]
+        #new_lev_pop *= pop_fraction[z1 - 1]
 
         new_linelist = numpy.zeros(len(in_range), dtype=pyatomdb.apec.generate_datatypes('linetype'))
         waves = []
@@ -427,8 +427,8 @@ def get_tables(inputs, values):
     new_table['dE/dR'].unit = None
     new_table['Epsilon_orig'] = table['Epsilon_orig']
     
-    #add "correlation factor" dE/E
-    new_table['|dE/E|'] = [abs(val) for val in (max-min)/table['Epsilon_orig']]
+    #add "correlation factor" dE/E -> **redefined dE/E to be the +/- error from orig epsilon**
+    new_table['|dE/E|'] = [abs(val)/2 for val in ((max-min)/table['Epsilon_orig'])]
     try:
       new_table.sort('|dE/E|', reverse=True)
     except TypeError:
@@ -1499,12 +1499,17 @@ def plot_ratio(fnames, ratio={}, cmap='hsv', opacity=0.4, labelsize=12, legendsi
                         temperature = "$T_e$ = " + "{}\\times 10^{}$K".format(string[0], round(int(string[1])))
 
             if type == 'temp':  # plot emissivity versus temperature
-                ax.semilogx(temps, Te_orig, color=clist(current))
-                if labels[current] == '':
-                    ax.fill_between(temps, Te_min, Te_max, alpha=alphas[current], color=clist(current), label=density)
-                else:
-                    ax.fill_between(temps, Te_min, Te_max, alpha=alphas[current], color=clist(current), label=labels[current])
-                error = [abs(x - y) / a for x, y, a in zip(Te_max, Te_min, Te_orig)]
+                # ax.semilogx(temps, Te_orig, color=clist(current))
+                # if labels[current] == '':
+                #     ax.fill_between(temps, Te_min, Te_max, alpha=alphas[current], color=clist(current), label=density)
+                # else:
+                #     ax.fill_between(temps, Te_min, Te_max, alpha=alphas[current], color=clist(current), label=labels[current])
+
+                ax.semilogx(temps, Te_orig, color=clist(current), label='Original')
+                ax.fill_between(temps, Te_min, Te_max, alpha=alphas[current], color=clist(current),
+                                    label='Range')
+
+                error = [(abs(x - y) / a)/2 for x, y, a in zip(Te_max, Te_min, Te_orig)]
                 ax2.semilogx(temps, error, color=clist(current))
                 ax2.set_xlabel('Temperature in K', fontsize=labelsize)
                 if Te_orig[-1] > Te_orig[0]: left = True
@@ -1516,7 +1521,7 @@ def plot_ratio(fnames, ratio={}, cmap='hsv', opacity=0.4, labelsize=12, legendsi
                     ax.fill_between(dens, dens_min, dens_max, alpha=alphas[current], color=clist(current), label=temperature)
                 else:
                     ax.fill_between(dens, dens_min, dens_max, alpha=alphas[current], color=clist(current), label=labels[current])
-                error = [abs(x - y) / a for x, y, a in zip(dens_max, dens_min, dens_orig)]
+                error = [(abs(x - y) / a)/2 for x, y, a in zip(dens_max, dens_min, dens_orig)]
                 ax2.semilogx(dens, error, color=clist(current))
                 if dens_orig[-1] > dens_orig[0]: left = True
                 else: left = False
@@ -1576,7 +1581,7 @@ def plot_ratio(fnames, ratio={}, cmap='hsv', opacity=0.4, labelsize=12, legendsi
             else:
                 ax.semilogx(dens_bins, R_orig, color=clist(current), label=temperature)
             ax.fill_between(dens_bins, R_min, R_max, alpha=alphas[current], color=clist(current))
-            error = [(y - x) / a for y, x, a in zip(R_max, R_min, R_orig)]
+            error = [((y - x) / a)/2 for y, x, a in zip(R_max, R_min, R_orig)]
             ax2.semilogx(dens_bins, error, color=clist(current))
             if R_orig[-1] > R_orig[0]: left = True
             else: left = False
@@ -1586,8 +1591,9 @@ def plot_ratio(fnames, ratio={}, cmap='hsv', opacity=0.4, labelsize=12, legendsi
         #     ax2.axhline(y=y, linestyle='--', color='k', alpha=0.3)
 
         fig.subplots_adjust(hspace=0, left=0.16, right=0.96, bottom=0.14, top=0.95)
-        if left == True: ax.legend(fontsize=legendsize, loc='upper left')
-        else: ax.legend(fontsize=legendsize, loc='upper right')
+        # if left == True: ax.legend(fontsize=legendsize, loc='upper left')
+        # else: ax.legend(fontsize=legendsize, loc='upper right')
+        ax.legend(fontsize=legendsize, loc='lower left')
         fig.savefig(name + ' R ratio.pdf')
 
     elif ratio.lower() == 'g':    # temp dependent g ratio
@@ -1630,12 +1636,17 @@ def plot_ratio(fnames, ratio={}, cmap='hsv', opacity=0.4, labelsize=12, legendsi
                 dg = math.sqrt(r_term + f_term + i_term + i2_term)
                 g_min.append(orig - dg)
 
-            ax.semilogx(temp_bins, g_orig, color=clist(current))
-            if label == '':
-                ax.fill_between(temp_bins, g_min, g_max, alpha=alphas[current], color=clist(current), label=density)
-            else:
-                ax.fill_between(temp_bins, g_min, g_max, alpha=alphas[current], color=clist(current), label=label)
-            error = [(y - x) / a for y, x, a in zip(g_max, g_min, g_orig)]
+            # ax.semilogx(temp_bins, g_orig, color=clist(current))
+            # if label == '':
+            #     ax.fill_between(temp_bins, g_min, g_max, alpha=alphas[current], color=clist(current), label=density)
+            # else:
+            #     ax.fill_between(temp_bins, g_min, g_max, alpha=alphas[current], color=clist(current), label=label)
+            #
+            ax.semilogx(temp_bins, g_orig, color=clist(current), label='Original')
+            ax.fill_between(temp_bins, g_min, g_max, alpha=alphas[current], color=clist(current), label='Range')
+
+
+            error = [((y - x) / a)/2 for y, x, a in zip(g_max, g_min, g_orig)]
             ax2.semilogx(temp_bins, error, color=clist(current))
             if g_orig[-1] > g_orig[0]: left = True
             else: left = False
@@ -1658,12 +1669,17 @@ def plot_ratio(fnames, ratio={}, cmap='hsv', opacity=0.4, labelsize=12, legendsi
                     if 'temperatures' in hdul[1].header:
                         string = "{:.0e}".format(data['temperatures'][0]).split("e+")
                         temperature = "$T_e$ = " + "{}\\times 10^{}$K".format(string[0], round(int(string[1])))
-                ax.semilogx(dens_bins, dens_total_orig, color=clist(current))
-                if label == '':
-                    ax.fill_between(dens_bins, dens_total_min, dens_total_max, label=temperature, color=clist(current), alpha=alphas[current])
-                else:
-                    ax.fill_between(dens_bins, dens_total_min, dens_total_max, label=label, color=clist(current), alpha=alphas[current])
-                error = [(y - x) / a for y, x, a in zip(dens_total_max, dens_total_min, dens_total_orig)]
+                # ax.semilogx(dens_bins, dens_total_orig, color=clist(current))
+                # if label == '':
+                #     ax.fill_between(dens_bins, dens_total_min, dens_total_max, label=temperature, color=clist(current), alpha=alphas[current])
+                # else:
+                #     ax.fill_between(dens_bins, dens_total_min, dens_total_max, label=label, color=clist(current), alpha=alphas[current])
+
+                ax.semilogx(dens_bins, dens_total_orig, color=clist(current), label='Original')
+                ax.fill_between(dens_bins, dens_total_min, dens_total_max, label='Range', color=clist(current),
+                                    alpha=alphas[current])
+
+                error = [((y - x) / a)/2 for y, x, a in zip(dens_total_max, dens_total_min, dens_total_orig)]
                 ax2.semilogx(dens_bins, error, color=clist(current))
                 if dens_total_orig[-1] > dens_total_orig[0]: left = True
                 else: left = False
@@ -1681,7 +1697,7 @@ def plot_ratio(fnames, ratio={}, cmap='hsv', opacity=0.4, labelsize=12, legendsi
                     ax.fill_between(temp_bins, Te_total_min, Te_total_max, label=density, color=clist(current), alpha=alphas[current])
                 else:
                     ax.fill_between(temp_bins, Te_total_min, Te_total_max, label=label, color=clist(current), alpha=alphas[current])
-                error = [(y - x) / a for y, x, a in zip(Te_total_max, Te_total_min, Te_total_orig)]
+                error = [((y - x) / a)/2 for y, x, a in zip(Te_total_max, Te_total_min, Te_total_orig)]
                 ax2.semilogx(temp_bins, error, color=clist(current))
                 if Te_total_orig[-1] > Te_total_orig[0]: left = True
                 else: left = False
@@ -1699,7 +1715,6 @@ def solve_ionrec(Telist, ionlist, reclist, Z):
     for ite in range(len(Telist)):
         Te, ion, rec = Telist[ite], ionlist[ite, :], reclist[ite, :]
         b, a = numpy.zeros(Z + 1, dtype=float), numpy.zeros([Z + 1, Z + 1], dtype=float)
-        #b, a = numpy.zeros(Z + 1), numpy.zeros([Z + 1, Z + 1])
 
         for iZ in range(0, Z):
             a[iZ, iZ] -= (ion[iZ])
@@ -1860,7 +1875,112 @@ def plot_temp_change(Z, errors, varyir={}, z1={}, Te_unit='keV', type='f', vline
     plt.show()
     plt.close('all')
 
-def find_temp_change(Z, z1, frac, delta_r, curve='rising', Te_unit='K'):
+def temp_change(Z, frac, max_ionize, max_recomb, type='f'):
+    Telist = numpy.logspace(4, 9, 1251)
+    element = pyatomdb.atomic.Ztoelsymb(Z)
+    cols = ['Ion', 'Rate error (i, r)', 'Temp at ' + str(frac) + '* peak (keV)', 'Error (keV)', 'Error (K)', 'Error (dex)']
+    for curve in ['rising', 'falling']:
+        print("Calculating for", curve, "curve")
+        eqpopn, negpopn, pospopn = monte_carlo_csd(Z, max_ionize, max_recomb, type=type)
+
+        if isinstance(max_ionize, dict):
+            ionize_errors = numpy.zeros([Z+1])
+            for z1, error in max_ionize.items():
+                ionize_errors[z1-1] = error
+            for i in range(len(ionize_errors)):
+                if ionize_errors[i] == 0: ionize_errors[numpy.nonzero(ionize_errors)].mean()
+        elif isinstance(max_ionize, float):
+            ionize_errors = [max_ionize] * (Z + 1)
+
+        if isinstance(max_recomb, dict):
+            recomb_errors = numpy.zeros([Z + 1])
+            for z1, error in max_recomb.items():
+                recomb_errors[z1 - 1] = error
+            for i in range(len(recomb_errors)):
+                if recomb_errors[i] == 0: recomb_errors[numpy.nonzero(recomb_errors)].mean()
+        elif isinstance(max_recomb, float):
+            recomb_errors = [max_recomb] * (Z + 1)
+
+        print("Ionization errors:", ionize_errors, "and recombination errors:", recomb_errors)
+
+        if curve == 'rising': fname = 'temp change ' + element + ' rising curve.csv'
+        elif curve == 'falling': fname = 'temp change ' + element + ' falling curve.csv'
+        file = pathlib.Path(fname)
+        if file.exists():
+            with open(fname, mode='a+') as write_obj:
+                dict_writer = csv.DictWriter(write_obj, fieldnames=cols)
+
+                for z1 in range(1, Z+2):
+                    # interpolate
+                    peak, index = numpy.max(eqpopn[:, z1 - 1]), numpy.argmax(eqpopn[:, z1-1])
+                    orig = Telist[index]
+                    try:
+                        if curve == 'falling':
+                            min_temp = numpy.interp(frac * peak, negpopn[index:, z1 - 1][::-1], Telist[index:][::-1])
+                            max_temp = numpy.interp(frac * peak, pospopn[index:, z1 - 1][::-1], Telist[index:][::-1])
+                        elif curve == 'rising':
+                            min_temp = numpy.interp(frac * peak, negpopn[:index, z1 - 1], Telist[:index])
+                            max_temp = numpy.interp(frac * peak, pospopn[:index, z1 - 1], Telist[:index])
+                    except ValueError:
+                        print("No", curve, "curve on z1 =", z1, "CSD, temp change is 0")
+                        min_temp, max_temp = 0, 0
+
+                    Kelvin_change = (max_temp - min_temp) / 2
+                    dex_change = (numpy.log10(max_temp) - numpy.log10(min_temp)) / 2
+                    keV_change = (max_temp / 11604525.0061657 - min_temp / 11604525.0061657) / 2
+
+                    temp_changes = {'Ion': element + ' ' + str(z1 - 1) + '+',
+                                        'Rate error (i, r)': str(ionize_errors[z1 - 1] * 100) + '%, ' + str(
+                                            recomb_errors[z1 - 1] * 100) + '%',
+                                        'Temp at ' + str(frac) + '* peak (keV)': orig / 11604525.0061657,
+                                        'Error (keV)': keV_change,
+                                        'Error (K)': Kelvin_change, 'Error (dex)': dex_change}
+                    dict_writer.writerow(temp_changes)
+
+                #dict_writer.writerow({'Ion': ''})s
+                # dict_writer = csv.DictWriter(csv_file, fieldnames=['Error used in CSD calculations'])
+                # dict_writer.writeheader()
+                # dict_writer.writerow({'Error used in CSD calculations': 'ionization = ' + str(max_ionize)})
+                # dict_writer.writerow({'Error used in CSD calculations': 'recombination = ' + str(max_recomb)})
+        else:
+            if curve == 'rising': fname = 'temp change ' + element + ' rising curve.csv'
+            elif curve == 'falling': fname = 'temp change ' + element + ' falling curve.csv'
+            with open(fname, mode='w') as csv_file:
+                dict_writer = csv.DictWriter(csv_file, fieldnames=cols)
+                dict_writer.writeheader()
+
+                for z1 in range(1, Z + 2):
+                    # interpolate
+                    peak, index = numpy.max(eqpopn[:, z1 - 1]), numpy.argmax(eqpopn[:, z1 - 1])
+                    orig = Telist[index]
+                    try:
+                        if curve == 'falling':
+                            min_temp = numpy.interp(frac * peak, negpopn[index:, z1 - 1][::-1], Telist[index:][::-1])
+                            max_temp = numpy.interp(frac * peak, pospopn[index:, z1 - 1][::-1], Telist[index:][::-1])
+                        elif curve == 'rising':
+                            min_temp = numpy.interp(frac * peak, negpopn[:index, z1 - 1], Telist[:index])
+                            max_temp = numpy.interp(frac * peak, pospopn[:index, z1 - 1], Telist[:index])
+                    except ValueError:
+                        print("No", curve, "curve on z1 =", z1, "CSD, temp change is 0")
+                        min_temp, max_temp = 0, 0
+
+                    Kelvin_change = (max_temp - min_temp) / 2
+                    dex_change = (numpy.log10(max_temp) - numpy.log10(min_temp)) / 2
+                    keV_change = (max_temp / 11604525.0061657 - min_temp / 11604525.0061657) / 2
+
+                    temp_changes = {'Ion': element + ' ' + str(z1 - 1) + '+',
+                                    'Rate error (i, r)': str(ionize_errors[z1-1]*100)+'%, '+str(recomb_errors[z1-1]*100)+'%',
+                                    'Temp at ' + str(frac) + '* peak (keV)': orig/11604525.0061657, 'Error (keV)': keV_change,
+                                    'Error (K)': Kelvin_change, 'Error (dex)': dex_change}
+                    dict_writer.writerow(temp_changes)
+
+                # dict_writer.writerow({'Ion': ''})
+                # dict_writer = csv.DictWriter(csv_file, fieldnames=['Error used in CSD calculations'])
+                # dict_writer.writeheader()
+                # dict_writer.writerow({'Error used in CSD calculations': 'ionization = ' + str(max_ionize)})
+                # dict_writer.writerow({'Error used in CSD calculations': 'recombination = ' + str(max_recomb)})
+
+def find_temp_change(Z, z1, frac, max_ionize, max_recombine):
   Telist = numpy.logspace(4, 9, 1251)
   element, z1_test = pyatomdb.atomic.Ztoelsymb(Z), z1
 
@@ -1879,13 +1999,13 @@ def find_temp_change(Z, z1, frac, delta_r, curve='rising', Te_unit='K'):
   #interpolate
   if curve == 'falling':
       min_temp = numpy.interp(frac * peak, negpopn[index:, z1_test - 1][::-1], Telist[index:][::-1])
-      next_min_temp = numpy.interp(frac * next_peak, negpopn[next_index:, z1_test], Telist[next_index:])
+      next_min_temp = numpy.interp(frac * next_peak, negpopn[next_index:, z1_test][::-1], Telist[next_index:][::-1])
       max_temp = numpy.interp(frac * peak, pospopn[index:, z1_test - 1][::-1], Telist[index:][::-1])
-      next_max_temp = numpy.interp(frac * next_peak, pospopn[next_index:, z1_test], Telist[next_index:])
+      next_max_temp = numpy.interp(frac * next_peak, pospopn[next_index:, z1_test][::-1], Telist[next_index:][::-1])
   elif curve == 'rising':
-      min_temp = numpy.interp(frac * peak, negpopn[:index, z1_test - 1][::-1], Telist[:index][::-1])
+      min_temp = numpy.interp(frac * peak, negpopn[:index, z1_test - 1], Telist[:index])
       next_min_temp = numpy.interp(frac * next_peak, negpopn[:next_index, z1_test], Telist[:next_index])
-      max_temp = numpy.interp(frac * peak, pospopn[:index, z1_test - 1][::-1], Telist[:index][::-1])
+      max_temp = numpy.interp(frac * peak, pospopn[:index, z1_test - 1], Telist[:index])
       next_max_temp = numpy.interp(frac * next_peak, pospopn[:next_index, z1_test], Telist[:next_index])
   #orig code:
   # min_temp = numpy.interp(frac * peak, negpopn[index:, z1_test - 1][::-1], Telist[index:][::-1])
@@ -1895,8 +2015,6 @@ def find_temp_change(Z, z1, frac, delta_r, curve='rising', Te_unit='K'):
 
   orig_dt, orig_dex_change = max_temp - min_temp, numpy.log10(max_temp) - numpy.log10(min_temp)
   next_dt, next_dex_change = next_max_temp - next_min_temp, numpy.log10(next_max_temp) - numpy.log10(next_min_temp)
-
-
 
   print("Ionize - comparing temps: orig", Telist[index], "min:", min_temp, "max:", max_temp)
 
@@ -2005,9 +2123,6 @@ def vary_csd(Z, z1, varyir, delta_r, Te_range=[1e4,1e9]):
 
     for z1 in range(1, Z + 2):
         ax.fill_between(Telist, negpopn[:, z1 - 1], pospopn[:, z1 - 1], color=clist[z1 - 1], alpha=0.5)
-        #####
-        # if z1 == z1_test:
-        #     ax3.fill_between(Telist, newpopn[:, z1-1], pospopn[:, z1-1], color='b', alpha=0.5)
 
     temps = temps_of_interest(Z, z1_test, Telist)
     for te in temps: ax3.axvline(x=te, linestyle='--', color='k', alpha=0.5)
@@ -2151,7 +2266,6 @@ def monte_carlo_csd(Z, max_ionize, max_recomb, runs=100, Te_range=[1e4,1e9], typ
         print("Using fractional error =", max_ionize, "for all ionization rates.")
         ionize_errors = [max_ionize]*(Z+1)
         avg_ionize_error = max_ionize
-
     if isinstance(max_recomb, dict):
         recomb_errors = numpy.zeros([Z + 1])
         for ion, error in max_recomb.items():
@@ -2165,7 +2279,6 @@ def monte_carlo_csd(Z, max_ionize, max_recomb, runs=100, Te_range=[1e4,1e9], typ
         print("Using fractional error =", max_recomb, "for all recombination rates.")
         recomb_errors = [max_recomb]*(Z+1)
         avg_recomb_error = max_recomb
-
     for run in range(runs):
         #get random ionization errors for each ion
         random1 = []
@@ -2177,8 +2290,7 @@ def monte_carlo_csd(Z, max_ionize, max_recomb, runs=100, Te_range=[1e4,1e9], typ
                 mu, sigma = 0, max_error
                 random1.append(stats.truncnorm.rvs((lower - mu) / sigma, (upper - mu) / sigma, loc=mu, scale=sigma, size=1))
             elif type.lower() == 'f':
-                random1.append(numpy.random.uniform(low=-max_error, high=max_error, size=None))
-
+                random1.append(numpy.random.uniform(low=-max_error, high=max_error, size=1))
         #get random recombination errors
         random2 = []
         for max_error in recomb_errors:
@@ -2189,7 +2301,7 @@ def monte_carlo_csd(Z, max_ionize, max_recomb, runs=100, Te_range=[1e4,1e9], typ
                 mu, sigma = 0, max_error
                 random2.append(stats.truncnorm.rvs((lower - mu) / sigma, (upper - mu) / sigma, loc=mu, scale=sigma, size=1))
             elif type.lower() == 'f':
-                random2.append(numpy.random.uniform(low=-max_error, high=max_error, size=None))
+                random2.append(numpy.random.uniform(low=-max_error, high=max_error, size=1))
         for col in range(Z):
             random_ion[:,col] = random1[col]
             random_rec[:,col] = random2[col]
@@ -2235,14 +2347,15 @@ def monte_carlo_csd(Z, max_ionize, max_recomb, runs=100, Te_range=[1e4,1e9], typ
             error, temp_bins = [], []
             for x, y, z, Te in zip(max[:, z1 - 1], min[:, z1 - 1], eqpopn[:, z1 - 1], Telist):
                 if z >= 10e-2:
-                    error.append((x - y) / z)
+                    error.append(((x - y) / z)/2)
                     temp_bins.append(Te)
             ax2.semilogx(temp_bins, error, color=clist(z1 - 1), linewidth=1)
             if numpy.max(error) > max_error: max_error = numpy.max(error)
-        ax2.set_yticks(numpy.arange(0, max_error, 0.25))
-        for y in numpy.arange(0.25, max_error, 0.25):
+        #ticks = [0, 0.05] + [x for x in numpy.arange(0.1, max_error+0.1, 0.1)]
+        ticks = numpy.arange(0, max_error+0.1, 0.1)
+        ax2.set_yticks(ticks)
+        for y in ticks[1:-1]:
             ax2.plot(Telist, [y] * len(Telist), color='grey', linewidth=1, alpha=0.3)
-        ax2.plot(Telist, [0.1] * len(Telist), color='grey', linewidth=1, alpha=0.3)
         plt.tight_layout()
         plt.subplots_adjust(hspace=0, top=0.86)
         plt.savefig(element + ' Monte Carlo CSD.pdf')
@@ -2578,7 +2691,7 @@ def gaussian_varied_rates(Z, max_error, Telist):
 
     return iontmp, rectmp
 
-def get_partial_deriv(Z, z1, vary, errors, Te={}, dens=1, lines={}, wavelen=[1,40], corrthresh=0.02, e_cutoff=1e-17):
+def get_partial_deriv(Z, z1, vary, errors, Te={}, dens=1, lines={}, wavelen=[1,40], corrthresh=10e-4, e_cutoff=1e-17):
     """Creates .csv file with partial log derivatives
     dE/dR and dE/E for specified error(s) for key lines
     and other affected lines.
@@ -2596,7 +2709,10 @@ def get_partial_deriv(Z, z1, vary, errors, Te={}, dens=1, lines={}, wavelen=[1,4
         Can either list lines as (up, lo) or int of wavelength in A
     wavelen: tuple or list
         min and max wavelength in A for range
-        Default is 1-30 A for X-rays.
+        Default is 1-40 A for X-rays.
+    corrthresh : int
+        Minimum change in emissivity from perturbing line
+        Default is 10e-4
     e_cutoff: int
         Minimum emissivity cutoff. Default is 1e-17."""
 
@@ -3695,7 +3811,7 @@ def line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, temps={}, dens=1, 
     l = str(up) + '->' + str(lo)
     plt.figure()
     plt.xlabel('Fractional error')
-    plt.ylabel('Fractional change in emissivity')
+    plt.ylabel('Fractional error in emissivity')
     plt.title(element + ' ' + ion + ' ' + l + ' sensitivity')
 
     matrix, legend_labels = numpy.zeros([len(trans_list), len(temps), len(errors)]), []
@@ -3723,14 +3839,12 @@ def line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, temps={}, dens=1, 
                 elif vary == 'A':
                     new_inputs, new_values = vary_a(inputs, values, transition)
                 table, new_table, inputs, results = get_tables(new_inputs, new_values)
-                idx = numpy.where(new_table['Upper'] == transition[0] and new_table['Lower'] == transition[1])
-                # for y in new_table:
-                #     print(y['Upper'], y['Lower'])
-                #     if (y['Upper'], y['Lower']) == transition or (y['Upper'], y['Lower']) == transition[::-1]:
-                print("fractional change is", new_table[idx]['|dE/E|'])
-                if new_table[idx]['|dE/E|'] < 0.0001: matrix[a,b,c] = 0.0
-                else: matrix[a,b,c] = new_table[idx]['|dE/E|']
-                changes.append(new_table[idx]['|dE/E|'])
+                #idx = numpy.where((new_table['Upper'] == transition[0]) and (new_table['Lower'] == transition[1]))
+                for y in new_table:
+                    if (y['Upper'], y['Lower']) == transition or (y['Upper'], y['Lower']) == transition[::-1]:
+                        if y['|dE/E|'] < 0.0001: matrix[a,b,c] = 0.0
+                        else: matrix[a,b,c] = y['|dE/E|']
+                        changes.append(y['|dE/E|'])
             plt.plot(errors, changes, color=clist(b), linestyle='--', marker=markers[a])
 
     plt.legend(handles=legend_labels, fontsize='xx-small', loc='upper left')
@@ -3746,7 +3860,7 @@ def get_orig_popn(Z, Telist):
     eqpopn = solve_ionrec(Telist, ionlist, reclist, Z)
     return eqpopn
 
-def find_CSD_change(Z, z1, delta_ionize, delta_recomb={}, Te={}, frac={}, varyir={}, datacache=d, printout=True):
+def find_CSD_change(Z, z1, delta_ionize, delta_recomb={}, Te={}, frac={}, varyir={}, printout=True):
     """ Find the change in CSD at specified temp or ion fraction.
     Default is applying random error from Gaussian distribution
     to all rates with a maximum error/sigma = delta_r.
@@ -3762,10 +3876,11 @@ def find_CSD_change(Z, z1, delta_ionize, delta_recomb={}, Te={}, frac={}, varyir
     where percent change is the difference from +/- error as a fraction of original value."""
 
     percent_change_Te, percent_change_abund = [], []
+    abund_errors, Te_errors = [], []
+    abund_error_dicts, Te_error_dicts = [], []
 
     Telist = numpy.logspace(4, 9, 1251)
     element = pyatomdb.atomic.Ztoelsymb(Z)
-    d = {}
 
     if type(z1) == int:
         ions = [z1]
@@ -3786,51 +3901,41 @@ def find_CSD_change(Z, z1, delta_ionize, delta_recomb={}, Te={}, frac={}, varyir
             if frac != {}:
                 peak = numpy.max(eqpopn[:, z1 - 1])
                 index = numpy.argmax(eqpopn[:, z1 - 1])
-                next_peak = numpy.max(eqpopn[:, z1])
-                next_index = numpy.argmax(eqpopn[:, z1])
 
                 # interpolate
                 min_temp = numpy.interp(frac * peak, negpopn[index:, z1-1][::-1], Telist[index:][::-1])
-                next_min_temp = numpy.interp(frac * next_peak, negpopn[:next_index, z1], Telist[:next_index])
                 max_temp = numpy.interp(frac * peak, pospopn[index:, z1-1][::-1], Telist[index:][::-1])
-                next_max_temp = numpy.interp(frac * next_peak, pospopn[:next_index, z1], Telist[:next_index])
 
                 orig_dt = max_temp - min_temp
                 orig_dex_change = numpy.log10(max_temp) - numpy.log10(min_temp)
-                next_dt = next_max_temp - next_min_temp
-                next_dex_change = numpy.log10(next_max_temp) - numpy.log10(next_min_temp)
 
                 if printout == True:
                     print(element, str(z1-1), "+ original temperature at", frac, "*peak is", Telist[index], "(Log(T) = ", numpy.log10(Telist[index]))
                     print("\n New temperature range in K is", min_temp, "to", max_temp, "i.e. dT =", orig_dt)
                     print("\n Log(T) range is", numpy.log10(min_temp), "to", numpy.log10(max_temp), "i.e. dLog(T) =", orig_dex_change)
                     print("\n")
-                percent_change_Te.append(abs(orig_dt/Telist[index]))
+                percent_change_Te.append(abs(orig_dt/Telist[index])/2)
 
             #if temperature given, find abundance change in new CSD at that temperature
             if Te != {}:
                 #original abundance
                 pop_fraction = pyatomdb.apec._solve_ionbal_eigen(Z, Te, teunit='K', datacache=d)
                 orig = pop_fraction[z1-1]
-                next_orig = pop_fraction[z1]
 
                 min = numpy.interp(Te, Telist, negpopn[:, z1 - 1])
                 max = numpy.interp(Te, Telist, pospopn[:, z1 - 1])
-                next_min = numpy.interp(Te, Telist, negpopn[:, z1])
-                next_max = numpy.interp(Te, Telist, pospopn[:, z1])
 
                 #find change
                 dA = max - min
                 log_dA = -numpy.log10(max) - (-numpy.log10(min))
-                next_dA = next_max - next_min
-                next_log_dA = -numpy.log10(next_max) - (-numpy.log10(next_min))
 
                 if printout == True:
                     print(element, str(z1 - 1), "+ original abundance at", "%.2E" % Decimal(Te), "K =", orig, "(-Log10(X) =", -numpy.log10(orig), ')\n')
                     print("New abundance range is", min, "to", max, "i.e. d_abund =", dA)
                     print("\n(-Log10(X) new range is", -numpy.log10(min), "to", -numpy.log10(max), '), i.e. d_log_abund =', log_dA)
                     print("\n")
-                percent_change_abund.append(abs(dA/orig))
+                percent_change_abund.append(abs(dA/orig)/2)
+                errors_dicts.append({'+': max-orig, '-': orig-min})
 
     #if varyir not specified, monte carlo rates
     else:
@@ -3842,19 +3947,13 @@ def find_CSD_change(Z, z1, delta_ionize, delta_recomb={}, Te={}, frac={}, varyir
             if frac != {}:
                 peak = numpy.max(eqpopn[:, z1 - 1])
                 index = numpy.argmax(eqpopn[:, z1 - 1])
-                next_peak = numpy.max(eqpopn[:, z1])
-                next_index = numpy.argmax(eqpopn[:, z1])
 
                 # interpolate
                 min_temp = numpy.interp(frac * peak, negpopn[index:, z1 - 1][::-1], Telist[index:][::-1])
-                next_min_temp = numpy.interp(frac * next_peak, negpopn[:next_index, z1], Telist[:next_index])
                 max_temp = numpy.interp(frac * peak, pospopn[index:, z1 - 1][::-1], Telist[index:][::-1])
-                next_max_temp = numpy.interp(frac * next_peak, pospopn[:next_index, z1], Telist[:next_index])
 
                 orig_dt = max_temp - min_temp
                 orig_dex_change = numpy.log10(max_temp) - numpy.log10(min_temp)
-                next_dt = next_max_temp - next_min_temp
-                next_dex_change = numpy.log10(next_max_temp) - numpy.log10(next_min_temp)
 
                 if printout == True:
                     print(element, str(z1 - 1), "+ original temperature at", frac, "*peak is", Telist[index], "(Log(T) = ",
@@ -3863,7 +3962,8 @@ def find_CSD_change(Z, z1, delta_ionize, delta_recomb={}, Te={}, frac={}, varyir
                     print("\n Log(T) range is", numpy.log10(min_temp), "to", numpy.log10(max_temp), "i.e. dLog(T) =",
                           orig_dex_change)
                     print("\n")
-                percent_change_Te.append(abs(orig_dt / Telist[index]))
+                percent_change_Te.append(abs(orig_dt / Telist[index])/2)
+                errors_dicts.append({'+': max - orig, '-': orig - min})
 
             # if temperature given, find abundance change in new CSD at that temperature
             if Te != {}:
@@ -3872,30 +3972,31 @@ def find_CSD_change(Z, z1, delta_ionize, delta_recomb={}, Te={}, frac={}, varyir
                 min = numpy.interp(Te, Telist, negpopn[:, z1 - 1])
                 max = numpy.interp(Te, Telist, pospopn[:, z1 - 1])
                 print("orig:", orig, "min:", min, "max:", max)
-                next_min = numpy.interp(Te, Telist, negpopn[:, z1])
-                next_max = numpy.interp(Te, Telist, pospopn[:, z1])
 
                 # find change
                 dA = max - min
                 log_dA = -numpy.log10(max) - (-numpy.log10(min))
-                next_dA = next_max - next_min
-                next_log_dA = -numpy.log10(next_max) - (-numpy.log10(next_min))
+                percent_error = ((max-orig)+(orig-min))/2
 
                 if printout == True:
                     print('\n', element, str(z1 - 1), "+ original abundance at", "%.2E" % Decimal(Te), "K =", orig,
                           "(-Log10(X) =", -numpy.log10(orig), ')\n')
-                    print("New abundance range is", min, "to", max, "i.e. d_abund =", dA)
+                    print("New abundance range is", min, "to", max, "i.e. d_abund =", dA, "for orig value =", orig)
                     print("\n(-Log10(X) new range is", -numpy.log10(min), "to", -numpy.log10(max), '), i.e. d_log_abund =',
                           log_dA)
+                    print("So abundance =", orig, "+", max-orig, "and -", orig-min)
                     print("\n")
-                percent_change_abund.append(abs(dA / orig))
+                #percent_change_abund.append(abs(dA / orig))
+                #percent_change_abund.append(abs(dA / orig)/2)
+                abund_errors.append(abs(percent_error))
+                abund_error_dicts.append({'+': max - orig, '-': orig - min})
 
     if (Te != {}) & (frac == {}):
-        print("Fractional change in abundances:", percent_change_abund)
-        return percent_change_abund
+        print("Abundance errors:", abund_errors)
+        return abund_errors, abund_error_dicts
     elif (Te == {}) & (frac != {}):
         print("Fractional change in temperatures:", percent_change_Te)
-        return percent_change_Te
+        return percent_change_Te, errors_dicts
     else:
         print("Fractional change in abundances:", percent_change_abund, "\nFractional change in temperatures:", percent_change_Te)
         return percent_change_Te, percent_change_abund
@@ -4005,56 +4106,22 @@ def error_analysis(Z, z1, up, lo, Te, dens, errors, linewidth=2.5, filename={}):
     elif emiss > peak_emiss: compare_emiss = 'above'
     elif emiss == peak_emiss: compare_emiss = 'at'
 
-    ####################################################
-    # # get contribution from direct excitation
-    # init, final, rates = pyatomdb.apec.gather_rates(Z, z1, Te, dens, do_la=False, \
-    #                                                 do_ec=True, do_ir=False, do_pc=False, do_ai=False, datacache=d)
-    # exc_index = ((final == up - 1) & (init != up - 1))
-    # init, final, rates = init[exc_index], final[exc_index], rates[exc_index]
-    # rates *= lev_pop[init] * ab * pop_fraction[z1 - 1]
-    # igood = numpy.where(rates > 0.01 * sum(rates))[0]
-    # print("List of significant sources of excitation. Probably only ground state in most cases. \n")
-    # for iigood in igood:
-    #     print(
-    #         'EXC %i -> %i : %e %f%%' % (
-    #         init[iigood], final[iigood], rates[iigood], rates[iigood] * 100. / sum(rates)))
-    # exc_emiss = sum(rates)
-    #
-    # inputs, values = set_up(Z, z1, Te, dens)
-    # table = values.get('table')
-    # all_emiss = 0
-    # for x in table:
-    #     if (x['Upper'] == up):
-    #         all_emiss += x['Epsilon_orig']*ab
-    #
-    # ##check:
-    # print("\n\nComparing exc_emiss", exc_emiss, "to full", emiss)
-    # print("Comparing to total emissivity from any level to level", up, "=", all_emiss)
-    # print("Direct excitation from 1->", up, "is only", str((exc_emiss/all_emiss)*100), "% of all emiss to level", up, '\n\n')
-    # ########################################
-    #
-    # #get contribution from ionization and recombination
-    # i_linelist = ionize(Z, z1, Te, dens, in_range, pop_fraction, datacache=d)
-    # r_linelist = recombine(Z, z1, Te, dens, in_range, pop_fraction, datacache=d)
-    # for x, y in zip(i_linelist, r_linelist):
-    #     if (x['upperlev'], x['lowerlev']) == (up, lo):
-    #         ionize_emiss = x['epsilon'] * ab
-    #     if (y['upperlev'], y['lowerlev']) == (up, lo):
-    #         recomb_emiss = y['epsilon'] * ab
-
     ######## get emissivity contributions #######
     exc, cascade, cascade_dict, other_cascades, recombination, ionization = get_contributions(Z, z1, up, lo, Te, dens)
 
     # CSD uncertainty
-    pop_fraction, ions = pyatomdb.apec._solve_ionbal_eigen(Z, Te, teunit='K', datacache=d), []
-    for i in range(1, Z+1):
+    pop_fraction, ions = pyatomdb.apec._solve_ionbal_eigen(Z, Te, teunit='K'), []
+    for i in range(1, Z+2):
         if pop_fraction[i-1] >= 0.001:     #get ions with abund > 0.1%
             ions.append(i)
 
+    print("Finding CSD errors for ions:", ions)
     str_ions = [element + '$^{+' + str(x - 1) + '}$' for x in ions]
     CSD = [round(pop_fraction[x-1]*100,2) for x in ions]
-    CSD_errors = find_CSD_change(Z, ions, delta_ionize, delta_recomb, Te=Te, datacache=d, printout=False)  # MC
-    CSD_errors = [int(round(x*100)) for x in CSD_errors]
+    CSD_errors, CSD_dicts = find_CSD_change(Z, ions, delta_ionize, delta_recomb, Te=Te, printout=False)  # MC
+    CSD_errors = [int(round((x*y)*100,2)) for x,y in zip(CSD_errors, CSD)]
+
+    for ion, error_dict in zip(str_ions, CSD_dicts): print(ion, error_dict)
 
     # get energies and flux uncertainty
     ionization_energy = pyatomdb.atomdb.get_ionpot(Z, z1, datacache=d)
@@ -4153,7 +4220,7 @@ def error_analysis(Z, z1, up, lo, Te, dens, errors, linewidth=2.5, filename={}):
         file.write('\\noindent Charge state distribution: \\\ \n')
         file.write('\\noindent \\begin{tabular}{ll}\n')
         for ion, frac, error in zip(str_ions, CSD, CSD_errors):
-            file.write(ion + ' & ' + str(frac) + '\\% $\\pm$ ' + str(error/2) + '\\% \\\ \n')
+            file.write(ion + ' & ' + str(frac) + '\\% $\\pm$ ' + str(error) + '\\% \\\ \n')
         file.write('\\end{tabular}\n')
         file.write('\\vskip 0.1in \n')
 
@@ -4233,72 +4300,7 @@ def find_max_error_csd(Z, z1, delta_ionize, delta_recomb={}):
     print(ret)
     return ret
 
-def peak_frac_sensitivity(Z, errors, z1_list={}, makefiles=True, plot=True):
-    """ Finds fractional change in ion peak abundances from
-    varying CSD with Gaussian selected random errors using each delta_r
-    from errors as sigma. If z1_list empty, calculates for all ions."""
-
-    Telist, element,  = numpy.logspace(4, 9, 1251), pyatomdb.atomic.Ztoelsymb(Z)
-    ions=[element+' +']+[element+' '+str(z1-1)+'+' for z1 in range(2, Z+2)]
-    if z1_list == {}:
-        z1_list = [z1 for z1 in range(1,Z+2)]
-    clist = get_cmap(Z+2)
-    t = values = Table()
-    t['Ion'] = values['Ion'] = ions
-    temp_fracs = numpy.zeros([len(errors), len(Telist), Z+1])
-
-    counter = 0
-    for max_error in errors:
-        median, min, max = monte_carlo_csd(Z, max_error, max_error)
-        for z1 in range(1, Z+2):
-            temp_fracs[counter, :, z1-1] = abs((max[:, z1-1]-min[:, z1-1])/median[:, z1-1])
-        percent, numbers_only = [], []
-        for z1 in range(1, Z+2):
-            #find ion abundances at peak abundance
-            peak = numpy.max(median[:, z1 - 1])
-            idx = numpy.argmax(median[:, z1 - 1])
-            min_p = min[idx, z1 - 1]
-            max_p = max[idx, z1 - 1]
-            val = abs((max_p - min_p) / peak)
-            numbers_only.append(val)
-            val = numpy.format_float_positional(val*100, precision=2)
-            percent.append(val+' %')
-
-        t['+/- '+str(max_error*100)+'%'] = percent
-        values['+/- '+str(max_error*100)+'%'] = numbers_only
-        counter+=1
-
-    if plot == True:
-        plt.xlabel('Fractional error')
-        plt.ylabel('Fractional change in peak abundance')
-        plt.title('Ion peak abundance sensitivity to error')
-        for z1 in z1_list:
-            v = [values[col][z1-1] for col in values.colnames[1:]]
-            plt.plot(errors, v, label=ions[z1-1], color=clist(z1-1))
-        plt.legend(fontsize='xx-small', loc='upper left')
-        plt.savefig(element+' peak abund sensitivity.pdf')
-        plt.show()
-        plt.close('all')
-
-    if makefiles == True:
-        for number in range(1, 30):
-            fname = element + ' peak frac changes ' + str(number) + '.csv'
-            file = pathlib.Path(fname)
-            if file.exists():
-                continue
-            else:
-                with open(fname, mode='w') as csv_file:
-                    writer = csv.DictWriter(csv_file, fieldnames = values.colnames)
-                    writer.writeheader()
-                    for row in values:
-                        data = {}
-                        for col in values.colnames:
-                            data.update({col: row[col]})
-                        writer.writerow(data)
-                    writer.writerow({values.colnames[0]:' '})
-                break
-
-def ion_sensitivity(Z, z1, errors, Te_range=[1e4,1e9], type='flat'):
+def ion_sensitivity(Z, z1, errors, Te_range=[1e4,1e9], type='f', show_legend=False):
     """ Plots fractional change in CSD abundance of specified ion
     over a range of temperatures from varying CSD with
     multiple magnitudes of errors.
@@ -4311,14 +4313,16 @@ def ion_sensitivity(Z, z1, errors, Te_range=[1e4,1e9], type='flat'):
     Te_range: list or tuple
         min and max temps in K
         (default is 1e4, 1e9 K)
+    type: str 
+        'f' for flat distribution, 'g' for Gaussian
+        type of distribution for error selection
+        of Monte Carlo calculations
     """
     clist = get_cmap(len(errors)+2)
     Telist = numpy.logspace(numpy.log10(Te_range[0]), numpy.log10(Te_range[1]),1251)
     fig, ax = plt.subplots()
-    ax.set_ylabel('Fractional change in abundance')
+    ax.set_ylabel('Fractional error in abundance')
     ax.set_xlabel('Temperature (K)')
-    element = pyatomdb.atomic.Ztoelsymb(Z)
-    #fig.suptitle(element+' '+str(z1-1)+'+ abundance sensitivity')
 
     for max_error, n in zip(errors, range(0, len(errors))):
         median, min, max = monte_carlo_csd(Z, max_error, max_error, runs=1000, plot=False, type=type, Te_range=Te_range)
@@ -4327,15 +4331,14 @@ def ion_sensitivity(Z, z1, errors, Te_range=[1e4,1e9], type='flat'):
             if a >= 10e-3:
                 if (x-y)/a <= 1:
                     temps.append(te)
-                    errors.append((x-y)/a)
-                    print("At Te=", te, "error is", (x-y)/a)
+                    errors.append(((x-y)/a)/2)
         ax.semilogx(temps, errors, color=clist(n), label="{}%".format(int(max_error*100)))
     peak_Te = find_peak_Te(Z, z1)
     ax.axvline(peak_Te, linestyle='--', color='grey', alpha=0.4)
-    #plt.legend(fontsize='xx-small', loc='upper right')
+    if show_legend == True: plt.legend(fontsize='xx-small', loc='upper right')
     plt.show()
 
-def peak_frac_sensitivity(Z, errors, z1={}, makefiles=True, plot=True, type='flat'):
+def peak_frac_sensitivity(Z, errors, z1={}, makefiles=False, plot=True, type='f', show_legend=False):
     """ Finds fractional change in ion peak abundances from
     varying CSD with random errors from Gaussian or flat distribution
     using each delta_r from errors as sigma.
@@ -4354,6 +4357,7 @@ def peak_frac_sensitivity(Z, errors, z1={}, makefiles=True, plot=True, type='fla
     temp_fracs = numpy.zeros([len(errors), len(Telist), Z+1])
 
     counter = 0
+    max_y = 0
     for max_error in errors:
         median, min, max = monte_carlo_csd(Z, max_error, max_error, runs=500, makefiles=False, plot=False, type=type)
         for z1 in range(1, Z+2):
@@ -4365,8 +4369,9 @@ def peak_frac_sensitivity(Z, errors, z1={}, makefiles=True, plot=True, type='fla
             idx = numpy.argmax(median[:, z1 - 1])
             min_p = min[idx, z1 - 1]
             max_p = max[idx, z1 - 1]
-            val = abs((max_p - min_p) / peak)
+            val = abs(((max_p - min_p) / peak)/2)
             if val < 0.01: val = 0
+            if val > max_y: max_y = val
             numbers_only.append(round(val,2))
             val = numpy.format_float_positional(val*100, precision=2)
             percent.append(val+' %')
@@ -4375,14 +4380,19 @@ def peak_frac_sensitivity(Z, errors, z1={}, makefiles=True, plot=True, type='fla
         counter+=1
 
     if plot == True:
-        plt.plot(errors, errors, color='k', linestyle='--')
+        ticks = numpy.arange(0, max_y + 0.05, 0.05)
+        #ax2.set_yticks(ticks)
+        plt.yticks(ticks, ticks)
+        i = numpy.where(errors < max_y + 0.05)[0]
+        print(i)
+        plt.plot(errors[i], errors[i], color='k', linestyle='--')
         plt.xlabel('Fractional error')
-        plt.ylabel('Fractional change in peak abundance')
-        plt.title('Ion peak abundance sensitivity to error')
+        plt.ylabel('Fractional error in peak abundance')
+        #plt.title('Ion peak abundance sensitivity to error')
         for z1 in z1_list:
             v = [values[col][z1-1] for col in values.colnames[1:]]
             plt.plot(errors, v, label=ions[z1-1], color=clist(z1-1))
-        plt.legend(fontsize='xx-small', loc='upper left')
+        if show_legend == True: plt.legend(fontsize='xx-small', loc='upper left')
         plt.savefig(element+' peak abund sensitivity.pdf')
         plt.show()
         plt.close('all')

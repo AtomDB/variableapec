@@ -27,6 +27,14 @@ except:
 global d
 d = {}
 
+#typical systematic uncertainties - to be added to
+#format: {key: val} should be {Z: {'max_ionize': {}, 'max_recomb':{}}}
+systematics = {26: {'max_ionize': {26: 0.15, 25: 0.14, 24: 0.13, 23: 0.265, 22: 0.4, 21: 0.4, 20: 0.4, 19: 0.4, 18: 0.15, 17: 0.16,
+                 16: 0.2, 15: 0.26, 14: 0.06, 13: 0.06, 12: 0.14, 11: 0.09, 10: 0.09, 9: 0.16, 8: 0.12, 7: 0.12,
+                6: 0.12, 5: 0.12, 4: 0.13, 3: 0.12, 2: 0.12, 1: 0.12}, 'max_recomb':{26: 0.2, 25: 0.2, 24: 0.2, 23: 0.2, 22: 0.2, 21: 0.2, 20: 0.2, 19: 0.2, 18: 0.2, 17: 0.2, 16: 0.2,
+                 15: 0.26, 14: 0.18, 13: 0.18, 12: 0.13, 11: 0.25, 10: 0.25, 9: 0.29, 8: 0.25, 7: 0.25, 6: 0.25,
+                  5: 0.25, 4: 0.25, 3: 0.25, 2: 0.25, 1: 0.25}}}
+
 def ionize(Z, z1, Te, dens, in_range, pop_fraction, datacache):
     z1_drv = z1-1
 
@@ -127,8 +135,9 @@ def set_up(Z, z1, Te, dens, extras={}):
     and creates sensitivity tables. Returns a dictionary "inputs"
     and the transition varied if extras is not empty."""
 
+    print("\n***********************************************************************************")
     print("Setting up linelists at Te={:.3e} and dens={:.3e}".format(Te, dens))
-    # global init, final, rates
+
     init, final, rates = pyatomdb.apec.gather_rates(Z, z1, Te, dens, do_la=True, \
                                                     do_ec=True, do_ir=True, do_pc=True, do_ai=True, datacache=d)
 
@@ -200,9 +209,6 @@ def set_up(Z, z1, Te, dens, extras={}):
         process, delta_r, transition, transition_2, wavelen, \
         Te_range, dens_range, corrthresh, e_signif, pop_fraction = [extras.get(k) for k in extras]
 
-        #use pop_fraction specified by user if not {}, otherwise use actual pop_fraction
-        if pop_fraction == {}: pop_fraction = pop_frac
-
         #print out emissivity from excitation, ionization, recombination
         if process == 'exc':
             i = numpy.where([(linelist['upperlev'] == transition[1]) & (linelist['lowerlev'] == transition[0])])[1]
@@ -239,7 +245,10 @@ def set_up(Z, z1, Te, dens, extras={}):
 
         inputs.update({'process': process, 'delta_r': delta_r, 'transition': transition, 'transition_2': transition_2,
                        'wavelen': wavelen, 'Te_range': Te_range, 'dens_range': dens_range,
-                       'corrthresh': corrthresh, 'e_signif': e_signif, 'pop_fraction': pop_fraction})
+                       'corrthresh': corrthresh, 'e_signif': e_signif, 'pop_fraction': pop_frac})
+        #use pop_fraction specified by user if not {}
+        if isinstance(pop_fraction, numpy.ndarray):
+            inputs['pop_fraction'] = pop_fraction
         values.update({'index': i})
         return inputs, values, transition
     else:
@@ -264,9 +273,8 @@ def vary_a(inputs, values, which_transition):
 
     matrix, B, in_range, linelist, table, new_table, idx = [values.get(k) for k in values]
 
-    print("****************************************************")
-    print("in vary_a for " + str(which_transition) + ", calculating rate for Te={:.3e} and dens={:.3e}".format(Te, dens))
-    print("****************************************************")
+    print("Varying A-value for", str(which_transition), "by", str(delta_r*100)+"%")
+          #", calculating rate for Te={:.3e} and dens={:.3e}".format(Te, dens))
 
     initial_lev, final_lev = which_transition[0], which_transition[1]
 
@@ -342,6 +350,8 @@ def vary_a(inputs, values, which_transition):
 
     for label, array in zip(['excitation', 'ionization', 'recombination'], [excitation, ionization, recombination]):
         print("Min and max", str(label), "emiss =", array)
+    print("***********************************************************************************")
+
     values = {'table': table, 'new_table': new_table, 'new_linelist': new_linelist, 'q_max': q_max, 'q_min': q_min}
     return inputs, values
 
@@ -364,9 +374,8 @@ def vary_exc(inputs, values, which_transition):
 
     matrix, B, in_range, linelist, table, new_table, idx = [values.get(k) for k in values]
 
-    print("***********************************************************************************")
-    print("in vary_exc for " + str(which_transition) + ", calculating rate for Te={:.3e} and dens={:.3e}".format(Te, dens))
-    print("***********************************************************************************")
+    print("Varying excitation rate for", str(which_transition), "by", str(delta_r*100)+"%")
+          #", calculating rate for Te={:.3e} and dens={:.3e}".format(Te, dens))
 
     exc_init, exc_final, exc_rates = pyatomdb.apec.gather_rates(Z, z1, Te, dens, do_la=False, \
                                                                 do_ec=True, do_ir=False, do_pc=False, do_ai=False,
@@ -376,7 +385,7 @@ def vary_exc(inputs, values, which_transition):
 
     #get original excitation rate of which_transition
     try:
-        i = numpy.where([(exc_init == which_transition[0]-1) & (exc_final == which_transition[1]-1)])[0][0]
+        i = numpy.where([(exc_init == which_transition[0]-1) & (exc_final == which_transition[1]-1)])[1][0]
         old_rate = exc_rates[i]
         if old_rate == 0: old_rate = 1e-40
     except:
@@ -432,6 +441,7 @@ def vary_exc(inputs, values, which_transition):
 
     for label, array in zip(['excitation', 'ionization', 'recombination'], [excitation, ionization, recombination]):
         print("Min and max", label, "emiss =", array)
+    print("***********************************************************************************")
     values = {'table': table, 'new_table': new_table, 'new_linelist': new_linelist, 'q_max': q_max, 'q_min': q_min}
     return inputs, values
 
@@ -464,10 +474,12 @@ def get_tables(inputs, values):
 
     #add partial derivative dE/dR (change in emissivity dE normalized by varied rate dR) and epsilon orig
     new_table['dE/dR'] = abs((max-min)/(q_max-q_min)).round(5)
+    new_table['dE/dR'][new_table['dE/dR'] < 0.0001] = 0
     new_table['dE/dR'].unit = None
     
     #add "correlation factor" dE/E -> **redefined dE/E to be the +/- error from orig epsilon**
     new_table['|dE/E|'] = ((numpy.abs(max-min)/table['Epsilon_orig'])/2).round(5)
+    new_table['|dE/E|'][new_table['|dE/E|'] < 0.0001] = 0
     new_table['|dE/E|'].unit = None
     try:
       new_table.sort('|dE/E|', reverse=True)
@@ -485,6 +497,23 @@ def get_tables(inputs, values):
                'lower': new_table['Lower'], 'dE/dR': new_table['dE/dR'], 'epsilon_orig': new_table['Epsilon_orig'],\
                 '|dE/E|': new_table['|dE/E|'], 'min_eps': min,'max_eps': max}
     return table, new_table, inputs, results
+
+def is_integer(value: str, *, base: int=10) -> bool:
+    try:
+        int(value, base=base)
+        return True
+    except ValueError:
+        return False
+
+def get_file_num(filename, ext):
+    a = os.listdir('./')
+    if filename not in [f.strip(ext) for f in a]:
+        return 1
+    else:
+        b = [f.strip(ext)[-1] for f in a if filename in f]
+        b = [int(x) for x in b if is_integer(x)]
+        number = max(b)+1
+        return number
 
 def run_line_diagnostics(Z, z1, up, lo, Te, dens, vary, delta_r, Te_range={}, dens_range={}, num={}, pop_fraction={}, plot=False, makefiles=True):
     """ Run line diagnostics for specified Z, z1 where up, lo are transition levels at
@@ -654,7 +683,7 @@ def plot_line_diagnostics(line_diagnostics, settings):
     plt.show()
     plt.close('all')
 
-def run_line_ratio_diagnostics(line_diagnostics_1, line_diagnostics_2, settings, plot=False):
+def run_line_ratio_diagnostics(line_diagnostics_1, line_diagnostics_2, settings):
     """ Table1 and table2 are tables from individually run get_tables() on the two transitions
     specified by the user. Inputs1, values1, inputs2, values2, are  dictionaries holding the
     inputs and the sensitivity table/emissivity values for each transition respectively.
@@ -728,13 +757,10 @@ def run_line_ratio_diagnostics(line_diagnostics_1, line_diagnostics_2, settings,
     number = get_file_num(fname, '.fits')
     table.write(fname + str(number) + '.fits')
     print("Wrote line diagnostics to file:", fname + str(number) + '.fits')
-
-    if plot == True:
-        plot_line_ratio_diagnostics(line_ratio_diagnostics, settings)
-
+    fname = fname + str(number) + '.fits'
     return fname, line_ratio_diagnostics
 
-def line_ratio_diagnostics(Z, z1, up, lo, up2, lo2, Te, dens, vary, delta_r, Te_range={}, dens_range={}, pop_fraction={}, num=10, plot=False):
+def line_ratio_diagnostics(Z, z1, up, lo, up2, lo2, Te, dens, vary, delta_r, Te_range={}, dens_range={}, pop_fraction={}, num=10, show=True):
     """ Varies 'exc' or 'A' value of each line individually and recalculates
     line ratio with the various errors."""
     # set defaults
@@ -755,38 +781,24 @@ def line_ratio_diagnostics(Z, z1, up, lo, up2, lo2, Te, dens, vary, delta_r, Te_
     if isinstance(delta_r, float): errors = [delta_r]
     else:
         errors = delta_r
-        plot = False #turn off plot setting for individuall plot_line_diagnostics(),
-                    # need to use plot_ratio() to plot multiple
 
     filenames, line_ratio_diags = [], []
     for delta_r in errors:
         settings = {'Z': Z, 'z1': z1, 'transition1': (up, lo), 'transition2': (up2, lo2), 'vary': vary, 'delta_r': delta_r}
         line1 = run_line_diagnostics(Z, z1, up, lo, Te, dens, vary, delta_r, Te_range=Te_range,dens_range=dens_range, num=num, makefiles=False)
         line2 = run_line_diagnostics(Z, z1, up2, lo2, Te, dens, vary, delta_r, Te_range=Te_range,dens_range=dens_range, num=num, makefiles=False)
-        fname, line_ratio = run_line_ratio_diagnostics(line1, line2, settings, plot=plot)
+        fname, line_ratio = run_line_ratio_diagnostics(line1, line2, settings)
         
-        if len(errors) == 1: return fname, line_ratio
+        if len(errors) == 1:
+            plot_ratio(fname, label=str(delta_r*100)+'%', show=show)
+            return fname, line_ratio
         else: 
             filenames.append(fname)
             line_ratio_diags.append(line_ratio)
     
     if len(errors) > 1:
-        if plot == True:
-            plot_ratio(filenames[::-1], labels=[str(x*100)+'%' for x in errors][::-1], cmap='plasma')
+        plot_ratio(filenames[::-1], labels=[str(x*100)+'%' for x in errors][::-1], cmap='plasma', show=show)
         return filenames, line_ratio_diags
-    
-def get_file_num(filename, ext):
-    a = os.listdir('./')
-    files = []
-    for file in a:
-        if filename in file:
-            if file.endswith(ext):
-                files.append(file.strip(ext))
-    if len(files) != 0:
-        number = max([int(x.strip('_')[-1]) for x in files])+1
-        return number
-    else: 
-        return 1
 
 def plot_multiple_sensitivity(Z, z1, Te, dens, delta_r, vary, lines, wavelen={}, corrthresh=1e-4, e_signif=1e-20, max_ionize={}, max_recomb={},
                               plot_settings={}):
@@ -914,7 +926,7 @@ def plot_multiple_sensitivity(Z, z1, Te, dens, delta_r, vary, lines, wavelen={},
     fig.subplots_adjust(left=0.17, right=0.94, bottom=0.15)
     plt.show()
 
-def blended_line_ratio(Z, z1, Te, dens, vary, delta_r, transition_list, denom, type={}, num=10, Te_range={}, dens_range={}, max_ionize={}, max_recomb={}, plot=False):
+def blended_line_ratio(Z, z1, Te, dens, vary, delta_r, transition_list, denom, type={}, num=10, Te_range={}, dens_range={}, max_ionize={}, max_recomb={}, show=True):
     #specify equation of blended line ratio
     #i.e. denom=1, then blended line ratio = [line 1 + line 2] / line 3
     #denm=2, then blended line ratio = line 1 / [line 2 + line 3]
@@ -982,8 +994,7 @@ def blended_line_ratio(Z, z1, Te, dens, vary, delta_r, transition_list, denom, t
         t1.write(fname + str(number) + '.fits', format='fits')
         print("Wrote blended line diagnostics to file:", fname + str(number) + '.fits')
 
-        if plot == True:
-            plot_ratio(fname + str(number) + '.fits', ratio='b')
+        plot_ratio(fname + str(number) + '.fits', ratio='b', show=show)
 
     elif type == 'dens':
         if dens_range == {} or dens_range == -1: dens_range = (1, 1e16)
@@ -1034,10 +1045,9 @@ def blended_line_ratio(Z, z1, Te, dens, vary, delta_r, transition_list, denom, t
         t2.write(fname + str(number) + '.fits', format='fits')
         print("Wrote line diagnostics to file:", fname + str(number) + '.fits')
 
-        if plot == True:
-            plot_ratio(fname+str(number)+'.fits', ratio='b')
+        plot_ratio(fname+str(number)+'.fits', ratio='b', show=show)
 
-    elif type == 'both':
+    elif type == 'both':    #prob get rid of this option
         if dens_range == {} or dens_range == -1: dens_range = (1, 1e16)
         if Te_range == {} or Te_range == -1: Te_range = (Te/10, Te*10)
         extras.update({'dens_range': dens_range, 'Te_range': Te_range})
@@ -1202,11 +1212,11 @@ def four_line_diagnostic(Z, z1, Te, dens, vary, delta_r, Te_range={}, dens_range
                        Te_i_orig, Te_i_min, Te_i_max, Te_i_orig2, Te_i_min2, Te_i_max2, density], names=('temp',
                        'r orig', 'r min', 'r max', 'f orig', 'f min', 'f max', 'i orig', 'i min', 'i max',
                         'i2 orig', 'i2 min', 'i2 max', 'density'))
-        fname = element + '_' + str(z1) + '_four_line_Te_'
+        fname = element + ' ' + ion + '_four_line_Te_'
         number = get_file_num(fname, '.fits')
         table.write(fname + str(number) + '.fits', format='fits')
         print("Wrote line diagnostics to file:", fname + str(number) + '.fits')
-        fname = element + '_' + str(z1) + '_four_line_Te_' + str(number) + '.fits'
+        fname = element + '_' + ion + '_four_line_Te_' + str(number) + '.fits'
 
     elif type == 'dens':
         type, dens_bins1, dens_r_orig, dens_r_min, dens_r_max, temperature = [r_diagnostics.get(k) for k in r_diagnostics]
@@ -1218,7 +1228,7 @@ def four_line_diagnostic(Z, z1, Te, dens, vary, delta_r, Te_range={}, dens_range
                         dens_i_orig, dens_i_min, dens_i_max, dens_i_orig2, dens_i_min2, dens_i_max2, temperature], names=
                        ('dens', 'r orig', 'r min', 'r max', 'f orig', 'f min', 'f max', 'i orig', 'i min', 'i max',
                         'i2 orig', 'i2 min', 'i2 max', 'temperature'))
-        fname = element + '_' + str(z1) + '_four_line_dens_'
+        fname = element + ' ' + ion + '_four_line_dens_'
         number = get_file_num(fname, '.fits')
         table.write(fname + str(number) + '.fits', format='fits')
         print("Wrote line diagnostics to file:", fname + str(number) + '.fits')
@@ -1249,7 +1259,7 @@ def four_line_diagnostic(Z, z1, Te, dens, vary, delta_r, Te_range={}, dens_range
 
     return fname
 
-def g_ratio(Z, z1, dens, vary, delta_r, Te_range={}, num=10, need_data=True, plot=True):
+def g_ratio(Z, z1, dens, vary, delta_r, Te_range={}, num=10, need_data=True, show=True):
     """ Default Te_range is (Te/10, Te*10) where Te = peak ion temperature.
     dens can be a single temp or list densities, different file written each time."""
 
@@ -1266,10 +1276,9 @@ def g_ratio(Z, z1, dens, vary, delta_r, Te_range={}, num=10, need_data=True, plo
             fname = four_line_diagnostic(Z, z1, find_peak_Te(Z, z1), tmp_dens, vary, delta_r, Te_range=Te_range, dens_range={}, type='temp', num=num)
             fnames.append(fname)
 
-    if plot == True:
-        plot_ratio(fnames, ratio='g')
+    plot_ratio(fnames, ratio='g', show=show)
 
-def r_ratio(Z, z1, Te, vary, delta_r, dens_range={}, num=10, need_data=True, plot=True):
+def r_ratio(Z, z1, Te, vary, delta_r, dens_range={}, num=10, need_data=True, show=True):
     """ Default dens_range is (1, 1e16) with 10 densities.
     Te can be a single temperature in K or a list/tuple of several,
     will write different file for each temp."""
@@ -1286,11 +1295,10 @@ def r_ratio(Z, z1, Te, vary, delta_r, dens_range={}, num=10, need_data=True, plo
             fname = four_line_diagnostic(Z, z1, tmp_Te, 1, vary, delta_r, Te_range={}, dens_range=dens_range, type='dens', num=num)
             fnames.append(fname)
 
-    if plot == True:
-        plot_ratio(fnames, ratio='r')
+    plot_ratio(fnames, ratio='r', show=True)
 
-def plot_ratio(fnames, ratio={}, cmap='plasma', opacity=0.4, labelsize=16, legendsize='medium', tickstep=0.1, 
-               show=True, labels=[], invertcmap=False, legendloc={}):
+def plot_ratio(fnames, ratio={}, cmap='plasma', opacity=0.4, labelsize=16, legendsize='medium', tickstep={},
+               show=True, labels=[], legendloc={}, important_ticks={}):
     """ Plots line ratio and error from specified files.
     fnames : str or list
         contains fits file names of runs to plot
@@ -1314,11 +1322,18 @@ def plot_ratio(fnames, ratio={}, cmap='plasma', opacity=0.4, labelsize=16, legen
     show : boolean
         Show to screen if True
         (plot will be saved as pdf either way)
+    labels : list
+        list of legend labels in same order as files in fname
+    legendloc : str or int
+        str or int specifying location of legend
+    important_ticks : list
+        list of floats specifying any important ticks 
+        for fractional error, i.e. 0.1 for a tick to
+        be drawn at 10% error
     """
     print("Plotting files:", fnames)
 
     #check inputs for colormap, alpha, and how many files to plot
-    if invertcmap == True: cmap += '_r'
     if isinstance(fnames, (list, tuple)):
         clist = get_cmap(len(fnames)+1, name=cmap)
         alphas = [opacity] * len(fnames)
@@ -1352,7 +1367,6 @@ def plot_ratio(fnames, ratio={}, cmap='plasma', opacity=0.4, labelsize=16, legen
                     temps, Te_orig, Te_min, Te_max = data['temps'], data['Te_orig'], data['Te_min'], data['Te_max']
                     if 'density' in [hdul[1].header[x] for x in hdul[1].header.keys()]:
                         string = "{:.0e}".format(data['density'][0]).split("e+")
-                        print(string)
                         if string[1] == '00': density = "$N_e = " + "{}".format(string[0]) + " cm^{-3}$"
                         else:
                             density = "$N_e = " + "{}\\times 10^{}".format(string[0], round(int(string[1]))) + " cm^{-3}$"
@@ -1395,8 +1409,13 @@ def plot_ratio(fnames, ratio={}, cmap='plasma', opacity=0.4, labelsize=16, legen
             if max_y_tick < 0.05: tickstep = 0.01
             elif 0.05 < max_y_tick < 0.1: tickstep = 0.02
             elif 0.1 < max_y_tick < 0.2: tickstep = 0.05
-            else: tickstep = 0.1
+            elif 0.2 < max_y_tick < 0.4: tickstep = 0.1
+            elif 0.4 < max_y_tick < 0.8: tickstep = 0.2
+            elif 0.8 < max_y_tick < 1.5: tickstep = 0.25
+            elif 1.5 < max_y_tick: tickstep = 0.5
+        print("Tick step =", tickstep)
         ticks = numpy.arange(0, max_y_tick + tickstep, tickstep)
+        #if 0.1 not in ticks: ticks = numpy.append(ticks, [0.1])
         ax2.set_yticks(ticks)
         locs = ax2.get_yticks()
         for y in locs[1:]:
@@ -1464,7 +1483,10 @@ def plot_ratio(fnames, ratio={}, cmap='plasma', opacity=0.4, labelsize=16, legen
             if max_y_tick < 0.05: tickstep = 0.01
             elif 0.05 < max_y_tick < 0.1: tickstep = 0.02
             elif 0.1 < max_y_tick < 0.2: tickstep = 0.05
-            else: tickstep = 0.1
+            elif 0.2 < max_y_tick < 0.4: tickstep = 0.1
+            elif 0.4 < max_y_tick < 0.8: tickstep = 0.2
+            elif 0.8 < max_y_tick < 1.5: tickstep = 0.25
+            elif 1.5 < max_y_tick: tickstep = 0.5
         ticks = numpy.arange(0, max_y_tick + tickstep, tickstep)
         ax2.set_yticks(ticks)
         locs = ax2.get_yticks()
@@ -1529,17 +1551,23 @@ def plot_ratio(fnames, ratio={}, cmap='plasma', opacity=0.4, labelsize=16, legen
                 ax.fill_between(temp_bins, g_min, g_max, alpha=alphas[i], color=clist(i), label=labels[i])
 
             error = (abs(g_max-g_min)/g_orig)/2
+            error = error[3:]
             if max(error) > max_y_tick: max_y_tick = max(error)
-            ax2.semilogx(temp_bins, error, color=clist(i))
+            ax2.semilogx(temp_bins[3:], error, color=clist(i))
             if g_orig[-1] > g_orig[0]: left = True
             else: left = False
 
         # set y ticks for error subplot if user didn't specify
+        print("Max tick", max_y_tick)
         if tickstep == {}:
             if max_y_tick < 0.05: tickstep = 0.01
             elif 0.05 < max_y_tick < 0.1: tickstep = 0.02
             elif 0.1 < max_y_tick < 0.2: tickstep = 0.05
-            else: tickstep = 0.1
+            elif 0.2 < max_y_tick < 0.4: tickstep = 0.1
+            elif 0.4 < max_y_tick < 0.8: tickstep = 0.2
+            elif 0.8 < max_y_tick < 1.5: tickstep = 0.25
+            elif 1.5 < max_y_tick: tickstep = 0.5
+        print("Tick step =", tickstep)
         ticks = numpy.arange(0, max_y_tick + tickstep, tickstep)
         ax2.set_yticks(ticks)
         locs = ax2.get_yticks()
@@ -1863,10 +1891,10 @@ def vary_csd(Z, z1, varyir, delta_r, Te_range=[1e4,1e9]):
     next_ionlist, next_reclist = numpy.zeros([len(next_temp_bins), Z]), numpy.zeros([len(next_temp_bins), Z])
 
     for z1 in range(1, Z + 1):
-        iontmp, rectmp = pyatomdb.atomdb.get_ionrec_rate(temp_bins, False, Z=Z, z1=z1, extrap=True)
+        iontmp, rectmp = pyatomdb.atomdb.get_ionrec_rate(temp_bins, False, Z=Z, z1=z1, extrap=True, datacache=d)
         ionlist[:, z1 - 1], reclist[:, z1-1] = iontmp, rectmp
 
-        next_iontmp, next_rectmp = pyatomdb.atomdb.get_ionrec_rate(next_temp_bins, False, Z=Z, z1=z1, extrap=True)
+        next_iontmp, next_rectmp = pyatomdb.atomdb.get_ionrec_rate(next_temp_bins, False, Z=Z, z1=z1, extrap=True, datacache=d)
         next_ionlist[:, z1 - 1], next_reclist[:, z1-1] = next_iontmp, next_rectmp
 
     eqpopn = solve_ionrec(temp_bins, ionlist, reclist, Z)
@@ -1980,7 +2008,7 @@ def monte_carlo_csd(Z, max_ionize, max_recomb, runs=100, Te_range=[1e4,1e9], typ
 
     ionlist, reclist = numpy.zeros([len(Telist), Z]), numpy.zeros([len(Telist), Z])
     for z1 in range(1, Z + 1):
-        iontmp, rectmp = pyatomdb.atomdb.get_ionrec_rate(Telist, False, Z=Z, z1=z1, extrap=True)
+        iontmp, rectmp = pyatomdb.atomdb.get_ionrec_rate(Telist, False, Z=Z, z1=z1, extrap=True, datacache=d)
         ionlist[:, z1 - 1] = iontmp
         reclist[:, z1 - 1] = rectmp
 
@@ -1990,13 +2018,13 @@ def monte_carlo_csd(Z, max_ionize, max_recomb, runs=100, Te_range=[1e4,1e9], typ
     random_ion, random_rec = numpy.zeros([len(Telist), Z]), numpy.zeros([len(Telist), Z])
 
     if isinstance(max_ionize, dict):
-        print("Filling in any empty z1 errors as avg of adjacent ions with supplied errors")
+        print("Filling in any empty z1 errors as avg of adjacent ions with supplied ionization errors")
         ionize_errors = get_errors(Z, max_ionize)
     elif isinstance(max_ionize, float):
         print("Using fractional error =", max_ionize, "for all ionization rates.")
         ionize_errors = [max_ionize]*(Z)
     if isinstance(max_recomb, dict):
-        print("Filling in any empty z1 errors as avg of adjacent ions with supplied errors")
+        print("Filling in any empty z1 errors as avg of adjacent ions with supplied recombination errors")
         recomb_errors = get_errors(Z, max_recomb)
     elif isinstance(max_recomb, float):
         print("Using fractional error =", max_recomb, "for all recombination rates.")
@@ -2104,7 +2132,7 @@ def extremize_csd(Z, max_error, runs, makefiles=False, plot=False):
     ionlist = numpy.zeros([len(Telist), Z])
     reclist = numpy.zeros([len(Telist), Z])
     for z1 in range(1, Z + 1):
-        iontmp, rectmp = pyatomdb.atomdb.get_ionrec_rate(Telist, False, Z=Z, z1=z1, extrap=True)
+        iontmp, rectmp = pyatomdb.atomdb.get_ionrec_rate(Telist, False, Z=Z, z1=z1, extrap=True, datacache=d)
 
         ionlist[:, z1 - 1] = iontmp
         reclist[:, z1 - 1] = rectmp
@@ -2355,7 +2383,7 @@ def extremize_ionreclist(Z, Telist, ion_deltar={}, rec_deltar={}):
     #get original rates
     for z1 in range(1, Z + 1):
         iontmp, rectmp = atomdb.get_ionrec_rate(Telist, False, Z=Z, z1=z1, extrap=True,
-                                                settings=False)
+                                                settings=False, datacache=d)
         if ion_deltar != {}:
             #change ion rate
             iontmp = [x + (x * (ion_deltar / 100)) for x in iontmp]
@@ -2380,7 +2408,7 @@ def gaussian_varied_rates(Z, max_error, Telist):
     reclist = numpy.zeros([len(Telist), Z])
 
     for z1 in range(1, Z + 1):
-        iontmp, rectmp = pyatomdb.atomdb.get_ionrec_rate(Telist, False, Z=Z, z1=z1, extrap=True)
+        iontmp, rectmp = pyatomdb.atomdb.get_ionrec_rate(Telist, False, Z=Z, z1=z1, extrap=True, datacache=d)
 
         ionlist[:, z1 - 1] = iontmp
         reclist[:, z1 - 1] = rectmp
@@ -2406,7 +2434,7 @@ def gaussian_varied_rates(Z, max_error, Telist):
 
     return iontmp, rectmp
 
-def get_partial_deriv(Z, z1, vary, errors, Te={}, dens=1, lines={}, wavelen={}, corrthresh=10e-4, e_cutoff=1e-17):
+def get_partial_deriv(Z, z1, vary, errors, Te={}, dens=1, lines={}, wavelen={}, corrthresh=10e-4, e_cutoff={}):
     """Creates .csv file with partial log derivatives
     dE/dR and dE/E for specified error(s) for key lines
     and other affected lines.
@@ -2430,7 +2458,8 @@ def get_partial_deriv(Z, z1, vary, errors, Te={}, dens=1, lines={}, wavelen={}, 
         Minimum change in emissivity from perturbing line
         Default is 10e-4
     e_cutoff: int
-        Minimum emissivity cutoff. Default is 1e-17."""
+        Minimum emissivity cutoff after factoring in abundance.
+        i.e. 1e-17."""
 
     element = pyatomdb.atomic.Ztoelsymb(Z)
     print("Calculating partial derivatives for", element, str(z1))
@@ -2442,7 +2471,8 @@ def get_partial_deriv(Z, z1, vary, errors, Te={}, dens=1, lines={}, wavelen={}, 
 
     if lines == {}:
         if (Z, z1) == (26,17):
-            trans_list = [(2,1), (3,1), (5,1), (17, 1), (23,1), (27,1)]
+            #trans_list = [(2,1), (3,1), (5,1), (17, 1), (23,1), (27,1)]
+            trans_list = [(17, 1), (23,1), (27,1)]
         if (Z, z1) == (26, 19):
             trans_list = [(53,1), (68,1), (71,1), (74, 1), (76, 4)]
         if Z-z1 == 1:
@@ -2490,8 +2520,8 @@ def get_partial_deriv(Z, z1, vary, errors, Te={}, dens=1, lines={}, wavelen={}, 
         i = numpy.where([(table['Upper'] == x[0]) & (table['Lower'] == x[1])])[1][0]
         wavelengths.append(table[i]['Lambda'])
         orig.append(table[i]['Epsilon_orig'])
-    t = Table([uppers, lowers, wavelengths, orig], names=('Upper', 'Lower', 'Lambda', 'Orig'))
-    t2 = t.copy()
+    t = Table([uppers, lowers, wavelengths, orig], names=('Upper', 'Lower', 'Lambda', 'Epsilon'))
+    t2 = Table([uppers, lowers, wavelengths, orig], names=('Upper', 'Lower', 'Lambda', 'Epsilon'))
     t3 = Table(names=('Upper', 'Lower', 'Lambda', 'Epsilon'))
     t4 = Table(names=('Upper', 'Lower', 'Lambda', 'Epsilon'))
     t5 = Table(names=('Upper', 'Lower', 'Lambda', 'Epsilon'))
@@ -2521,7 +2551,6 @@ def get_partial_deriv(Z, z1, vary, errors, Te={}, dens=1, lines={}, wavelen={}, 
                     table, new_table, inputs, results = get_tables(new_inputs, new_values)
 
                 partial_deriv, frac_E, linear_partial_deriv, linear_frac_E = [], [], [], []
-
                 # get derivatives for the strong lines varied
                 for x in t:
                     i = numpy.where([(new_table['Upper'] == x['Upper']) & (new_table['Lower'] == x['Lower'])])[1][0]
@@ -2541,56 +2570,38 @@ def get_partial_deriv(Z, z1, vary, errors, Te={}, dens=1, lines={}, wavelen={}, 
                 if wavelen != {}:
                     table = table[(wavelen[0] <= table['Lambda']) & (table['Lambda' <= wavelen[1]])]
                     new_table = new_table[(wavelen[0] <= new_table['Lambda']) & (new_table['Lambda' <= wavelen[1]])]
-                
+
                 #get partial derivs for lines in "interesting lines" and linear lines tables:
-                partial_deriv, frac_E = [], []
-                print("Current t4:\n", t4)
+                partial_deriv, frac_E, linear_partial_deriv, linear_frac_E = [], [], [], []
                 if len(t4) != 0:
                     for x in t4:
-                        print("current row is", x)
-                        row = [(new_table['Upper'] == x['Upper']) & (new_table['Lower'] == x['Lower'])]
-                        deriv, frac = row['dE/dR'], row['|dE/E|']
-                        if abs(deriv) < 0.0001: deriv = 0.0
-                        if abs(frac) < 0.0001: frac = 0.0
-                        frac_E.append(frac)
-                        partial_deriv.append(deriv)
+                        i = numpy.where([(new_table['Upper'] == x['Upper']) & (new_table['Lower'] == x['Lower'])])[1][0]
+                        frac_E.append(new_table[i]['|dE/E|'])
+                        partial_deriv.append(new_table[i]['dE/dR'])
 
                 if len(t6) != 0:
                     for x in t6:
-                        row = [(new_table['Upper'] == x['Upper']) & (new_table['Lower'] == x['Lower'])]
-                        deriv, frac = row['dE/dR'], row['|dE/E|']
-                        if abs(deriv) < 0.0001: deriv = 0.0
-                        if abs(frac) < 0.0001: frac = 0.0
-                        frac_E.append(frac)
-                        partial_deriv.append(deriv)
+                        i = numpy.where([(new_table['Upper'] == x['Upper']) & (new_table['Lower'] == x['Lower'])])[1][0]
+                        linear_frac_E.append(new_table[i]['|dE/E|'])
+                        linear_partial_deriv.append(new_table[i]['dE/dR'])
 
                 #now search through tables for other lines affected and add to tables
-                new_table2 = new_table[(corrthresh <= new_table['|dE/E|']) & (new_table['|dE/E|'] <= 0.98)]
-                print("Interesting lines:\n", new_table2)
+                new_table2 = new_table[(corrthresh <= new_table['|dE/E|'])]
+                print("Affected lines:\n", new_table2)
                 for x in new_table2:
-                    if ((x['Upper'], x['Lower']) not in trans_list) & ((x['Upper'], x['Lower']) not in t4):
-                        row = [int(x['Upper']), int(x['Lower']), x['Lambda'], x['Epsilon_orig']] + ['0'] * (len(t4.colnames) - 4)
-                        t3.add_row(row)
-                        t4.add_row(row)
-                        deriv, frac = x['dE/dR'], x['|dE/E|']
-                        if deriv < 0.0001: deriv = 0
-                        if frac < 0.0001: frac = 0
-                        partial_deriv.append(deriv)
-                        frac_E.append(frac)
-
-                linear_partial_deriv, linear_frac_E = [], []
-                new_table2 = new_table[(0.98 <= new_table['|dE/E|']) & (new_table['|dE/E|'] <= 1.02)]
-                print("Linear lines:\n", new_table2)
-                for x in new_table2:
-                    if ((x['Upper'], x['Lower']) not in trans_list) & ((x['Upper'], x['Lower']) not in t6):
-                        row = [int(x['Upper']), int(x['Lower']), x['Lambda'], x['Epsilon_orig']] + ['0'] * (len(t6.colnames) - 4)
-                        t5.add_row(row)
-                        t6.add_row(row)
-                        deriv, frac = x['dE/dR'], x['|dE/E|']
-                        if deriv < 0.0001: deriv = 0
-                        if frac < 0.0001: frac = 0
-                        linear_partial_deriv.append(deriv)
-                        linear_frac_E.append(frac)
+                    if (x['Upper'], x['Lower']) not in trans_list:
+                        if ((x['Upper'], x['Lower']) not in t6) & (0.98 <= x['|dE/E|'] <= 1.02):
+                            row = [int(x['Upper']), int(x['Lower']), x['Lambda'], x['Epsilon_orig']] + ['0'] * (len(t6.colnames) - 4)
+                            t5.add_row(row)
+                            t6.add_row(row)
+                            linear_partial_deriv.append(x['dE/dR'])
+                            linear_frac_E.append(x['|dE/E|'])
+                        elif ((x['Upper'], x['Lower']) not in t4) & ((x['|dE/E|'] < 0.98) or (1.02 < x['|dE/E|'])):
+                            row = [int(x['Upper']), int(x['Lower']), x['Lambda'], x['Epsilon_orig']] + ['0'] * (len(t4.colnames) - 4)
+                            t3.add_row(row)
+                            t4.add_row(row)
+                            partial_deriv.append(x['dE/dR'])
+                            frac_E.append(x['|dE/E|'])
 
                 t3[dR], t4[dE] = partial_deriv, frac_E
                 t5[dR], t6[dE] = linear_partial_deriv, linear_frac_E
@@ -2598,28 +2609,18 @@ def get_partial_deriv(Z, z1, vary, errors, Te={}, dens=1, lines={}, wavelen={}, 
     #sort by epsilon descending
     try:
         for x in [t3,t4,t5,t6]:
-            x.sort(['Epsilon_orig'], reverse=True)
+            x.sort(['Epsilon'], reverse=True)
     except TypeError:
         for x in [t3,t4,t5,t6]:
-            x.sort('Epsilon_orig')
+            x.sort('Epsilon')
             x = x[::-1]
-    print("Sorted")
 
-    #2 decimal places for epsilons and lambdas
-    for tab in [t3,t4,t5,t6]:
-        for col in list(tab.colnames)[2:]:
-            if 'Epsilon' or 'Lambda' in col:
-                tab[col] = tab[col].round(3)
-            else:
-                tab[col] = tab[col].round(2)
-    print("Rounded")
-
-    #replace row separating lines changed with "other affected lines" with --
-    t2.add_row(numpy.array([0] * len(t2.colnames)))
+    #replace row separating lines changed with "other affected lines" with row of --
+    t2.add_row([0] * len(t2.colnames), mask=[True]*len(t2.colnames))
     
-    #if t6 is not empty, add separating line between "interesting lines" t4 and "linear lines" t6
+    #if t6 is not empty, add separating line of -- between "interesting lines" t4 and "linear lines" t6
     if len(t6) != 0:
-        t4.add_row(numpy.array([0]*len(t4.colnames)))
+        t4.add_row([0] * len(t2.colnames), mask=[True]*len(t2.colnames))
 
     #join t2 and t4 and t6
     joined = vstack([t2, t4, t6])
@@ -2650,7 +2651,7 @@ def find_peak_Te(Z, z1, unit='K'):
     ionlist = numpy.zeros([len(Telist), Z])
     reclist = numpy.zeros([len(Telist), Z])
     for temp_z1 in range(1, Z + 1):
-        iontmp, rectmp = pyatomdb.atomdb.get_ionrec_rate(Telist, False, Z=Z, z1=temp_z1, extrap=True,settings=False)
+        iontmp, rectmp = pyatomdb.atomdb.get_ionrec_rate(Telist, False, Z=Z, z1=temp_z1, extrap=True,settings=False, datacache=d)
         ionlist[:, temp_z1 - 1] = iontmp
         reclist[:, temp_z1 - 1] = rectmp
     eqpopn = solve_ionrec(Telist, ionlist, reclist, Z)
@@ -3351,7 +3352,7 @@ def find_abund_change(Z, Te, delta_r, vary, z1={}, unit='K'):
     if z1 == {}: return abund_change
     else: return abund_change[:, z1-1]
 
-def temps_of_interest(Z, z1, Telist):
+def temps_of_interest(Z, z1, Telist=numpy.logspace(4,9,1251)):
     """Returns dict of temperatures in K and labels of where ion is at
     1%, 10%, peak fractional abundance, and back down to 10% and 1%."""
 
@@ -3362,7 +3363,7 @@ def temps_of_interest(Z, z1, Telist):
     temp_bins = numpy.array([increasing_temps[0], increasing_temps[1], Telist[peak], decreasing_temps[1], decreasing_temps[0]])
     return temp_bins
 
-def line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, temps={}, dens=1, trans_labels={}):
+def line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, temps={}, pop_fraction={}, cmap='plasma', dens=1, trans_labels={}, show=True):
     """ Calculates fractional change in emissivity dE/E for
     specified Z (element), z1 (ion charge+1), up, lo line.
     Vary either 'exc' or 'A' for each transition in trans_list
@@ -3374,13 +3375,12 @@ def line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, temps={}, dens=1, 
     vary : str
     errors : list of delta_r's
     """
-
+    print("Pop fraction is:", pop_fraction)
     if temps == 'peak': temps = [find_peak_Te]
     if isinstance(temps, int) or isinstance(temps, float): temps = [temps]
     elif temps == {}: temps = temps_of_interest(Z, z1, numpy.logspace(4,9,1251))
 
-    element = pyatomdb.atomic.Ztoelsymb(Z)
-    ion = pyatomdb.atomic.int_to_roman(z1)
+    element, ion = pyatomdb.atomic.Ztoelsymb(Z), pyatomdb.atomic.int_to_roman(z1)
 
     if trans_list == {}:
         if (Z, z1) == (26,17):
@@ -3401,7 +3401,7 @@ def line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, temps={}, dens=1, 
     plt.title(element + ' ' + ion + ' ' + l + ' sensitivity')
 
     matrix, legend_labels = numpy.zeros([len(trans_list), len(temps), len(errors)]), []
-    clist = get_cmap(len(temps) + 1)    #color is for # of temps
+    clist = get_cmap(len(temps) + 1, cmap)    #color is for # of temps
     markers = ['o', 'v', 's', 'P', '^', '2']    #marker is for each transition
     temp_str = ['%.1E' % Decimal(x) for x in temps]
 
@@ -3424,7 +3424,7 @@ def line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, temps={}, dens=1, 
             for c, delta_r in enumerate(errors):
                 print("Varying rate by", delta_r*100, "%")
                 extras = {'process': vary, 'delta_r': delta_r, 'transition': [], 'transition_2': [],
-                       'wavelen': (10, 20), 'Te_range': {}, 'dens_range': {}, 'corrthresh': 0.0, 'e_signif': 0.0, 'pop_fraction':{}}
+                       'wavelen': (10, 20), 'Te_range': {}, 'dens_range': {}, 'corrthresh': 0.0, 'e_signif': 0.0, 'pop_fraction':pop_fraction}
                 if vary == 'exc':
                     extras['transition'] = (lo, up)
                     inputs, values, transition = set_up(Z, z1, Te, dens, extras=extras)
@@ -3442,13 +3442,17 @@ def line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, temps={}, dens=1, 
             plt.plot(errors, matrix[a,b,:], color=clist(b), linestyle='--', marker=markers[a])
            
     plt.legend(handles=legend_labels, fontsize='xx-small', loc='upper left')
-    plt.show()
+    element, ion = pyatomdb.atomic.Ztoelsymb(Z), pyatomdb.atomic.int_to_roman(z1)
+    plt.savefig(element+' '+ion+' '+str(up)+'-'+str(lo)+' sensitivity.pdf')
+    if show == True:
+        plt.show()
+    return matrix
 
 def get_orig_popn(Z, Telist):
     ionlist = numpy.zeros([len(Telist), Z])
     reclist = numpy.zeros([len(Telist), Z])
     for temp_z1 in range(1, Z + 1):
-        iontmp, rectmp = pyatomdb.atomdb.get_ionrec_rate(Telist, False, Z=Z, z1=temp_z1, extrap=True, settings=False)
+        iontmp, rectmp = pyatomdb.atomdb.get_ionrec_rate(Telist, False, Z=Z, z1=temp_z1, extrap=True, settings=False, datacache=d)
         ionlist[:, temp_z1 - 1] = iontmp
         reclist[:, temp_z1 - 1] = rectmp
     eqpopn = solve_ionrec(Telist, ionlist, reclist, Z)
@@ -4022,7 +4026,7 @@ def get_new_popns(Telist, Z, z1_test, varyir, delta_r):
 
     # get the rates
     for z1 in range(1, Z + 1):
-        iontmp, rectmp = pyatomdb.atomdb.get_ionrec_rate(Telist, False, Z=Z, z1=z1, extrap=True)
+        iontmp, rectmp = pyatomdb.atomdb.get_ionrec_rate(Telist, False, Z=Z, z1=z1, extrap=True, datacache=d)
         ionlist[:, z1 - 1] = iontmp
         reclist[:, z1 - 1] = rectmp
     eqpopn = solve_ionrec(Telist, ionlist, reclist, Z)
@@ -4251,3 +4255,88 @@ def get_contributions(Z, z1, up, lo, Te, dens):
     print("Other cascades = cascade - sum(cascade_frac):")
     print(other_cascades, cascade, sum(cascade_frac))
     return exc, cascade, cascade_dict, other_cascades, recombination, ionization
+
+def mc_popn(Z, max_ionize, max_recomb, Te, runs=100, type='f'):
+    """
+    Z : int
+        element
+    max_ionize : float or dict
+        max ionization errors
+        float if same error for all ions
+        dict of {'z1': delta_r}
+    max_recomb : float or dict
+        max recombination errors
+        float if same error for all ions
+        dict of {'z1': delta_r}
+    type : str
+        'f' for flat distribution
+        'g' for gaussian distribution
+
+    Returns the minimum and max ion population
+    for element Z at specified Te (in K) after
+    Monte Carlo calculations to vary ionization
+    and recombination rates."""
+
+    mc_popn = numpy.zeros([runs, Z + 1])
+    random_ion, random_rec = numpy.zeros([Z]), numpy.zeros([Z])
+
+    if isinstance(max_ionize, dict):
+        print("Filling in any empty z1 errors as avg of adjacent ions with supplied ionization errors")
+        ionize_errors = get_errors(Z, max_ionize)
+    elif isinstance(max_ionize, float):
+        print("Using fractional error =", max_ionize, "for all ionization rates.")
+        ionize_errors = [max_ionize] * (Z)
+    if isinstance(max_recomb, dict):
+        print("Filling in any empty z1 errors as avg of adjacent ions with supplied recombination errors")
+        recomb_errors = get_errors(Z, max_recomb)
+    elif isinstance(max_recomb, float):
+        print("Using fractional error =", max_recomb, "for all recombination rates.")
+        recomb_errors = [max_recomb] * (Z)
+
+    ionlist, reclist = numpy.zeros([1, Z]), numpy.zeros([1, Z])
+    for z1 in range(1, Z + 1):
+        iontmp, rectmp = pyatomdb.atomdb.get_ionrec_rate(Te, False, Z=Z, z1=z1, extrap=True, datacache=d)
+        ionlist[0, z1 - 1] = iontmp
+        reclist[0, z1 - 1] = rectmp
+
+    for run in range(runs):
+        # get random ionization errors for each ion
+        for i, max_error in enumerate(ionize_errors):
+            if type.lower() == 'g':
+                lower, upper = -2 * max_error, 2 * max_error
+                mu, sigma = 0, max_error
+                random_ion[i] = stats.truncnorm.rvs((lower - mu) / sigma, (upper - mu) / sigma, loc=mu, scale=sigma, size=1)
+            elif type.lower() == 'f':
+                random_ion[i] = numpy.random.uniform(low=-max_error, high=max_error, size=1)
+        # get random recombination errors
+        for i, max_error in enumerate(recomb_errors):
+            # use average if error not supplied for that ion
+            if type.lower() == 'g':
+                lower, upper = -2 * max_error, 2 * max_error
+                mu, sigma = 0, max_error
+                random_rec[i] = stats.truncnorm.rvs((lower - mu) / sigma, (upper - mu) / sigma, loc=mu, scale=sigma, size=1)
+            elif type.lower() == 'f':
+                random_rec[i] = numpy.random.uniform(low=-max_error, high=max_error, size=1)
+
+        # vary rates by a different random number for each ion
+        iontmp = ionlist * 1.0
+        rectmp = reclist * 1.0
+        for z1, rand_ion, rand_rec in zip(range(1, Z + 1), random_ion, random_rec):
+            rectmp[0, z1 - 1] *= (1 + random_rec[z1 - 1])
+            iontmp[0, z1 - 1] *= (1 + random_ion[z1 - 1])
+        newpopn = solve_ionrec([Te], iontmp, rectmp, Z)
+
+        for z1 in range(1, Z + 2):
+            mc_popn[run, z1 - 1] = newpopn[:, z1 - 1]
+
+    # find mean and standard dev from all runs for each ion at each temp
+    min, max = numpy.zeros([Z + 1]), numpy.zeros([Z + 1])
+    for z1 in range(1, Z + 2):
+        pop = mc_popn[:, z1 - 1]
+        pop_list = numpy.sort(pop)
+        min_index = int(0.16 * runs - 1)
+        max_index = int(0.84 * runs - 1)
+        min[z1 - 1] = pop_list[min_index]
+        max[z1 - 1] = pop_list[max_index]
+
+    return min, max

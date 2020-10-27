@@ -4,7 +4,7 @@ from importlib.metadata import version
  
 
 setup(name='variableapec',
-      version=version("variableapec.py"),
+      version=version("variableapec"),
       description='variableapec tool for AtomDB python library.',
       url='http://www.atomdb.org',
       author='Keri Heuer',

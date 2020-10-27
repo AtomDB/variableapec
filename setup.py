@@ -39,22 +39,6 @@ def GetGitVersion():
 
     return branchOrTag
 
-if on_rtd:
-  from mock import Mock as MagicMock
-
-  extmos= []
-
-  class Mock(MagicMock):
-      @classmethod
-      def __getattr__(cls, name):
-              return Mock()
-
-  MOCK_MODULES = ['liblinapprox']
-  sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
-
-else:
-  extmos= [linapprox]
-
 setup(name='variableapec',
       version=variableapec.__version__,
       description='variableapec tool for AtomDB python library.',

@@ -1,10 +1,11 @@
 from setuptools import setup, Extension
 import os
 from importlib.metadata import version
- 
+
+#set version number manually for now
 
 setup(name='variableapec',
-      version=version("variableapec"),
+      version="1.0.2",
       description='variableapec tool for AtomDB python library.',
       url='http://www.atomdb.org',
       author='Keri Heuer',

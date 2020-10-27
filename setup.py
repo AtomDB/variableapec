@@ -1,10 +1,6 @@
 from setuptools import setup
 # from https://gist.github.com/dcreager/300803 with "-dirty" support added
-import os
-
-readme = open('README.rst', 'r')
-README_TEXT = readme.read()
-readme.close()
+import os, Extension
 
 linapprox =  Extension("linear_approx",['linear_approx.c'],\
                        define_macros = [('MAJOR_VERSION', '1'),\

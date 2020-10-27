@@ -1,9 +1,11 @@
 from setuptools import setup, Extension
 from setuptools_scm import get_version
 import os
+from importlib.metadata import version
+ 
 
 setup(name='variableapec',
-      version=get_version(root=".", relative_to_="variableapec.py"),
+      version=version("variableapec.py"),
       description='variableapec tool for AtomDB python library.',
       url='http://www.atomdb.org',
       author='Keri Heuer',

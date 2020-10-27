@@ -1,6 +1,6 @@
-from setuptools import setup
+from setuptools import setup, Extension
 # from https://gist.github.com/dcreager/300803 with "-dirty" support added
-import os, Extension
+import os
 
 linapprox =  Extension("linear_approx",['linear_approx.c'],\
                        define_macros = [('MAJOR_VERSION', '1'),\

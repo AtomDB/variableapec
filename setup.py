@@ -21,8 +21,7 @@ setup(name='variableapec',
                    'Topic :: Scientific/Engineering :: Physics',\
                    'Programming Language :: Python :: 3',\
                    'Operating System :: POSIX'],
-      zip_safe=False,
-      long_description = README_TEXT,\
+      zip_safe=False,\
       install_requires=[
       "requests",\
       "wget",\
@@ -31,5 +30,4 @@ setup(name='variableapec',
       "joblib",\
       "mock",\
       "astropy",\
-      "pycurl"],
-      ext_modules = extmos)
+      "pycurl"])

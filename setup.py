@@ -1,5 +1,4 @@
 from setuptools import setup, Extension
-from setuptools_scm import get_version
 import os
 from importlib.metadata import version
  

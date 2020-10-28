@@ -31,5 +31,5 @@ setup(name='variableapec',
       "mock",\
       "astropy",\
       "pycurl"],
-      packages=find_packages()
+      packages=find_packages(),
       py_modules=['variableapec'])

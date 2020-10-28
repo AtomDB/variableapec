@@ -1,4 +1,4 @@
-from setuptools import setup, Extension
+from setuptools import setup, find_packages
 import os
 from importlib.metadata import version
 

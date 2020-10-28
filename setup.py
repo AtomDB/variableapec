@@ -30,4 +30,5 @@ setup(name='variableapec',
       "joblib",\
       "mock",\
       "astropy",\
-      "pycurl"])
+      "pycurl",
+      py_modules=['variableapec']])

@@ -1,16 +1,18 @@
 """This module contains methods for looking at emission and line ratios
 as a function of varying atomic data from the AtomDB files. Requires
-PyAtomdB, Python 3, LaTeX, and astroML if you wish to use LaTeX font with plots."""
+PyAtomdB, Python 3, LaTeX, (and astroML if you wish to use LaTeX font with plots)."""
 
-# Keri Heuer
-# Version 1.0.2, Oct 18, 2020
+__version__ = "1.0.2" #Oct 27, 2020
+__author__ = "Keri Heuer"
+__email__ = "kh3286@drexel.edu"
+__status__ = "Development"
 
 import matplotlib.pyplot as plt, matplotlib.ticker as mtick, scipy.stats as stats, \
 pyatomdb, numpy, pickle, pathlib, csv, os, errno, hashlib, requests, urllib.request, \
 urllib.parse, urllib.error, time, subprocess, shutil, wget, glob, datetime, ftplib, \
 pathlib, collections, operator, requests, matplotlib.pylab as pylab, glob, math
 from io import StringIO
-from matplotlib.ticker import FormatStrFormatter
+from matplotlib.ticker import FormatStrFormatter, LogFormatterSciNotation
 from matplotlib.lines import Line2D
 from astropy.io import fits
 from astropy.table import Table, Column, vstack
@@ -905,7 +907,7 @@ def plot_ratio(fnames, ratio={}, opacity=0.4, show=True, labels=[]):
         plt.show()
 
 ##update for better plotting
-def run_line_diagnostics(Z, z1, up, lo, Te, dens, vary, delta_r, Te_range={}, dens_range={}, num={}, pop_fraction={}, plot=True, makefiles=False):
+def run_line_diagnostics(Z, z1, up, lo, Te, dens, vary, delta_r, Te_range={}, dens_range={}, num={}, pop_fraction={}, show=True, makefiles=False):
     """ Run line diagnostics for specified Z, z1 where up, lo are transition levels at
     specified Te and dens. Vary is 'exc' rate or 'A' value, delta_r is fractional error.
     Can specify range of Te and dens values with tuple of (min, max) values and number
@@ -1005,7 +1007,7 @@ def run_line_diagnostics(Z, z1, up, lo, Te, dens, vary, delta_r, Te_range={}, de
         table.write(fname+str(number) + '.fits')
         print("Wrote to file:", fname+str(number) + '.fits')
 
-    if plot == True:
+    if show == True:
         plot_line_diagnostics(line_diagnostics, settings)
     return line_diagnostics
 
@@ -1191,7 +1193,7 @@ def line_ratio_diagnostics(Z, z1, up, lo, up2, lo2, Te, dens, vary, delta_r, Te_
         return filenames, line_ratio_diags
 
 def plot_multiple_sensitivity(Z, z1, Te, dens, delta_r, vary, lines, wavelen={}, corrthresh=1e-4, e_signif=1e-20, max_ionize={}, max_recomb={},
-                              plot_settings={}):
+                              plot_settings={}, show=True):
     """ Plots sensitive epsilons for multiple transitions all on one plot.
     Lines is dict of {'name': (up, lo)} or just list of [(up, lo), (up2, lo2)]
     Can specify wavelength range as well as correlation threshold and minimum
@@ -1311,7 +1313,9 @@ def plot_multiple_sensitivity(Z, z1, Te, dens, delta_r, vary, lines, wavelen={},
 
     ax2.legend(fontsize=plot_settings['fontsize'])
     fig.subplots_adjust(left=0.17, right=0.94, bottom=0.15)
-    plt.show()
+    fig.savefig(fname+'.pdf')
+    if show == True:
+        plt.show()
 
 def blended_line_ratio(Z, z1, Te, dens, vary, delta_r, transition_list, denom, type={}, num=10, Te_range={}, dens_range={}, max_ionize={}, max_recomb={}, show=True):
     #specify equation of blended line ratio
@@ -1498,7 +1502,7 @@ def blended_line_ratio(Z, z1, Te, dens, vary, delta_r, transition_list, denom, t
         print("Wrote temperature diagnostics to file:", fname1 + str(number) + '.fits')
         print("Wrote density diagnostics to file:", fname2 + str(number)+ '.fits')
 
-        if plot == True:
+        if show == True:
             blended_ratio = str(lines[0]) + str(lines[1]) + '$\AA$/' + str(lines[2]) + '$\AA$'
             fig, (ax1, ax2) = plt.subplots(nrows=2, sharex=True)
             fig.suptitle(blended_ratio)
@@ -1717,7 +1721,7 @@ def solve_ionrec(Telist, ionlist, reclist, Z):
         popn[ite, :] = arr
     return popn
 
-def monte_carlo_csd(Z, max_ionize, max_recomb, runs=100, Te_range=[1e4,1e9], distribution='f', Telist={}, makefiles=False, plot=False):
+def monte_carlo_csd(Z, max_ionize, max_recomb, runs=100, Te_range=[1e4,1e9], distribution='f', Telist={}, makefiles=False, show=True):
     """ Varies CSD with Monte Carlo calculations with a max error on
     ionization and recombination rates. max_ionize and max_recomb can
     either be a float of a single fractional error for all ions,
@@ -1797,12 +1801,7 @@ def monte_carlo_csd(Z, max_ionize, max_recomb, runs=100, Te_range=[1e4,1e9], dis
         for z1 in range(1, Z + 2):
             mc_popn[run, z1 - 1, :] = newpopn[:, z1 - 1]
 
-    fig3,ax3=plt.subplots()
-    my_z1 = 26
-    ax3.set_ylabel('Ionic Concentration')
-    ax3.set_xlabel('Temperature (K)')
-
-    if plot == True:
+    if show == True:
         gs_kw = dict(width_ratios=[3], height_ratios=[2, 1])
         fig, (ax, ax2) = plt.subplots(nrows=2, sharex=True, gridspec_kw=gs_kw)
         ax2.set_xlabel('Temperature (K)', fontsize=plot_settings['fontsize'])
@@ -1835,29 +1834,6 @@ def monte_carlo_csd(Z, max_ionize, max_recomb, runs=100, Te_range=[1e4,1e9], dis
                     temp_bins.append(Te)
             ax2.semilogx(temp_bins, error, color=clist(z1 - 1), linewidth=1)
             if numpy.max(error) > max_y: max_y = numpy.max(error)
-
-        idx = numpy.where(eqpopn[:, my_z1-1] >= 10e-2)[0]
-        ax3.semilogx(Telist[idx], eqpopn[idx, my_z1 - 1], color=clist(my_z1 - 1), linestyle='-')
-        ax3.fill_between(Telist[idx], min[idx, my_z1 - 1], max[idx, my_z1 - 1], color=clist(my_z1 - 1), alpha=0.4)
-        from matplotlib.ticker import LogFormatterSciNotation
-        ax3.tick_params(axis='y', which='minor')
-        ax3.xaxis.set_minor_formatter(LogFormatterSciNotation(labelOnlyBase=False, minor_thresholds=(2, 0.4)))
-        locs = ax3.get_yticks()
-        ax3.set_ylim(0, locs[-1])
-
-        frac, peak, index = 0.5, numpy.max(eqpopn[:, my_z1-1]), numpy.argmax(eqpopn[:, my_z1-1])
-        rising_min_temp = numpy.interp(frac * peak, min[:index, my_z1 - 1], Telist[:index])
-        rising_max_temp = numpy.interp(frac * peak, max[:index, my_z1 - 1], Telist[:index])
-        rising_orig_temp = numpy.interp(frac * peak, eqpopn[:index, my_z1 - 1], Telist[:index])
-
-        falling_min_temp = numpy.interp(frac * peak, min[index:, my_z1 - 1][::-1], Telist[index:][::-1])
-        falling_max_temp = numpy.interp(frac * peak, max[index:, my_z1 - 1][::-1], Telist[index:][::-1])
-        falling_orig_temp = numpy.interp(frac * peak, eqpopn[index:, my_z1-1][::-1], Telist[index:][::-1])
-
-        ax3.axhline(frac*peak, color='k', alpha=0.1, linestyle='--')
-        ax3.errorbar(rising_orig_temp, frac*peak, xerr=[[rising_orig_temp-rising_min_temp], [rising_max_temp-rising_orig_temp]], color='k', marker='.', barsabove=True, capsize=5, linewidth=1.5, markeredgewidth=1.5, zorder=3)
-        ax3.errorbar(falling_orig_temp, frac*peak, xerr=[[falling_orig_temp-falling_min_temp], [falling_max_temp-falling_orig_temp]], color='k', marker='.', barsabove=True, capsize=5, linewidth=1.5, markeredgewidth=1.5, zorder=3)
-
 
         ticks = numpy.arange(0, max_y+plot_settings['tickstep'], plot_settings['tickstep'])
         ax2.set_yticks(ticks)
@@ -1962,6 +1938,64 @@ def temp_change(Z, frac, max_ionize, max_recomb, distribution='f', precision=0.1
                             'Falling Error (keV)': falling_keV_change, 'Falling Error (%)': falling_percent_change}
             dict_writer.writerow(temp_changes)
 
+def plot_temp_shift(Z, z1, max_ionize, max_recomb, frac, show=True):
+    """Plots the unperturbed and perturbed CSD from a given
+    ionization and recombination error with lines denoting
+    the horizontal temperature shift at the specified
+    fraction of peak ionic concentration on the rising
+    and falling CSD curve.
+
+    Z : int
+        element
+    z1 : int
+        ion charge +1
+    max_ionize : float or dict
+        float for single ionization error for all ions or
+        dict of {z1: error}
+    max_recomb : float or dict
+        float for single recombination error for all ions or
+         dict of {z1: error}
+    frac : float
+        fraction of peak ionic concentration
+        i.e. 0.5 for half peak ion fraction
+    show : bool
+        True to show plot on screen (default)
+        figure saves either way"""
+
+    eqpopn, min, max = monte_carlo_csd(Z, max_ionize, max_recomb, show=False)
+    clist, Telist = get_cmap(Z+2, cmap=plot_settings['cmap']), numpy.logspace(4,9,1251)
+    idx = numpy.where(eqpopn[:, z1 - 1] >= 10e-2)[0]
+    fig, ax = plt.subplots()
+    ax.semilogx(Telist[idx], eqpopn[idx, z1 - 1], color=clist(z1 - 1), linestyle='-')
+    ax.fill_between(Telist[idx], min[idx, z1 - 1], max[idx, z1 - 1], color=clist(z1 - 1), alpha=0.4)
+    ax.tick_params(axis='y', which='minor')
+    ax.xaxis.set_minor_formatter(LogFormatterSciNotation(labelOnlyBase=False, minor_thresholds=(2, 0.4)))
+    locs = ax.get_yticks()
+    ax.set_ylim(0, locs[-1])
+
+    #interpolate
+    frac, peak, index = frac, numpy.max(eqpopn[:, z1 - 1]), numpy.argmax(eqpopn[:, z1 - 1])
+    rising_min_temp = numpy.interp(frac * peak, min[:index, z1 - 1], Telist[:index])
+    rising_max_temp = numpy.interp(frac * peak, max[:index, z1 - 1], Telist[:index])
+    rising_orig_temp = numpy.interp(frac * peak, eqpopn[:index, z1 - 1], Telist[:index])
+
+    falling_min_temp = numpy.interp(frac * peak, min[index:, z1 - 1][::-1], Telist[index:][::-1])
+    falling_max_temp = numpy.interp(frac * peak, max[index:, z1 - 1][::-1], Telist[index:][::-1])
+    falling_orig_temp = numpy.interp(frac * peak, eqpopn[index:, z1 - 1][::-1], Telist[index:][::-1])
+
+    ax.axhline(frac * peak, color='k', alpha=0.1, linestyle='--')
+    ax.errorbar(rising_orig_temp, frac * peak,
+                 xerr=[[rising_orig_temp - rising_min_temp], [rising_max_temp - rising_orig_temp]], color='k',
+                 marker='.', barsabove=True, capsize=5, linewidth=1.5, markeredgewidth=1.5, zorder=3)
+    ax.errorbar(falling_orig_temp, frac * peak,
+                 xerr=[[falling_orig_temp - falling_min_temp], [falling_max_temp - falling_orig_temp]], color='k',
+                 marker='.', barsabove=True, capsize=5, linewidth=1.5, markeredgewidth=1.5, zorder=3)
+
+    element = pyatomdb.atomic.Ztoelsymb(Z)
+    fig.savefig(element+' '+str(z1-1)+'+ temp shift ' + str(frac)+' peak.pdf')
+    if show == True:
+        plt.show()
+
 def vary_csd(Z, z1, varyir, delta_r, Te_range=[1e4,1e9], errors={}):
     """ Varies CSD by changing z1 'i' or 'r' rate only.
     Delta_r is fractional change, i.e. 0.10 for 10%.
@@ -2034,7 +2068,7 @@ def csd_slope(Z, z1, varyir, errors={}):
         list of positive errors to vary rate by
     """
 
-    if plot_settings['latex_font'] == True:
+    if plot_settings['use_latex_font'] == True:
         try:
             setup_text_plots(usetex=True)
         except:
@@ -2106,7 +2140,7 @@ def csd_slope(Z, z1, varyir, errors={}):
         label = numpy.format_float_scientific(Te, exp_digits=1, precision=1) + ' K' + percent
         ax2.plot(new_errors, y, label=label, marker='.')
 
-    for ax in (ax, ax2):
+    for axis in (ax, ax2):
         axis.legend(fontsize=plot_settings['legendsize'])
         for which in ['x', 'y']:
             axis.tick_params(axis=which, labelsize=plot_settings['ticksize'])
@@ -3567,87 +3601,29 @@ def error_analysis(Z, z1, up, lo, Te, dens, errors, linewidth=2.5, filename={}, 
     for ext in ['.log', '.out', '.aux', '.tex']:
         os.remove(filename+ext)
 
-# #def ion_sensitivity(Z, z1, errors, Te_range=[1e4,1e9], distribution='f', show_legend=False):
-#     """ Plots fractional change in CSD abundance of specified ion
-#     over a range of temperatures from varying CSD with
-#     multiple magnitudes of errors.
-#     Z: int
-#         element
-#     z1: int
-#         ion charge+1
-#     errors: list or tuple
-#         list of fractional errors, i.e. 0.1 for 10%
-#     Te_range: list or tuple
-#         min and max temps in K
-#         (default is 1e4, 1e9 K)
-#     type: str
-#         'f' for flat distribution, 'g' for Gaussian
-#         type of distribution for error selection
-#         of Monte Carlo calculations
-#     """
-#
-#     if plot_settings['latex_font'] == True:
-#         try:
-#             setup_text_plots(usetex=True)
-#         except:
-#             setup_text_plots(usetex=False)
-#             print("Using regular matplotlib font for plotting, could not find an installation of LaTeX")
-#
-#     clist = get_cmap(len(errors)+2, name=plot_settings['cmap'])
-#     Telist = numpy.logspace(numpy.log10(Te_range[0]), numpy.log10(Te_range[1]),1251)
-#     fig, ax = plt.subplots(figsize=(10,8))
-#     ax.set_ylabel('Fractional error in ionic concentration', fontsize=plot_settings['fontsize'])
-#     ax.set_xlabel('Temperature (K)', fontsize=plot_settings['fontsize'])
-#     for which in ['x', 'y']:
-#         axis.tick_params(axis=which, labelsize=plot_settings['ticksize'])
-#
-#     for i, max_error in enumerate(errors):
-#         median, min, max = monte_carlo_csd(Z, max_error, max_error, runs=1000, plot=False, distribution=distribution, Te_range=Te_range)
-#         idx = numpy.where(median[:, z1-1] >= 10e-3)
-#         temps, median, min, max = Telist[idx], median[idx, :], min[idx, :], max[idx, :]
-#         errors = ((max[:, z1-1]-min[:, z1-1])/median[:, z1-1])/2
-#         ax.semilogx(temps, errors, color=clist(i), label="{}%".format(int(max_error*100)))
-#     peak_Te = find_peak_Te(Z, z1)
-#     ax.axvline(peak_Te, linestyle='--', color='grey', alpha=0.4)
-#     plt.legend(fontsize='xx-small', loc='upper right')
-#     plt.show()
-# ###combine these two
+def ion_sensitivity(Z, errors, z1_plot={}, z1_interesting={}, distribution='f', show_legend=True, show=True):
+    """ Finds fractional change in ion peak abundances from
+    varying CSD with random errors from Gaussian or flat distribution
+    using each delta_r from errors as sigma.
+    If z1 empty, calculates for all ions."""
 
-def ion_sensitivity(Z, errors, z1_plot={}, z1_interesting={}, distribution='f', show_legend=False):
-    """
-    Z: int
-        element
-    errors: list or tuple
-        list of fractional errors to use in Monte Carlo calculations
-        to vary all rate coefficients by
-    z1_plot: int or list or tuple
-            a single z1 or list of z1 ions to plot
-            peak ion concentration sensitivity for
-    z1_interesting: int
-            a single z1 to create a figure showing
-            ion concentration sensitivity to error magnitude
-            over all temperatures where concentration >= 10e-3
-    distribution: str
-        'f' for flat distribution or 'g' for Gaussian
-        (to be used in Monte Carlo calculations of varying rates)
-    show_legend : bool
-        True to show legend for peak concentration sensitivity plot
-        default is False
-    """
-    Telist, element, = numpy.logspace(4, 9, 1251), pyatomdb.atomic.Ztoelsymb(Z)
+    Telist, element,  = numpy.logspace(4, 9, 1251), pyatomdb.atomic.Ztoelsymb(Z)
     if z1_plot == {}:
-        z1_list = [z1 for z1 in range(1, Z + 2)]
-    elif z1_plot != {} and isinstance(z1, int):
-        z1_list = [z1_plot]
-    else:
-        z1_list = list(z1_plot)
+        z1_list = [z1 for z1 in range(1,Z+2)]
+    elif z1_plot != {} and isinstance(z1_plot, int): z1_list = [z1_plot]
+    else: z1_list = list(z1_plot)
 
-    ions = [element] + [element + ' ' + str(z1 - 1) + '+' for z1 in range(2, Z + 2)]
-    clist = get_cmap(Z + 2)
-    values = Table(ions, names=('Ion'))
+    ions = [element + ' +'] + [element + ' ' + str(z1 - 1) + '+' for z1 in range(2, Z + 2)]
+    values = Table()
+    values['Ion'] = ions
+
+    #plot peak concentration change for all z1 specified
     fig, ax1 = plt.subplots()
+    ax1.set_xlabel('Fractional change on rate coefficients')
+    ax1.set_ylabel('Fractional change in peak ionic concentration')
+    clist = get_cmap(Z + 2)
 
-    #if z1_interesting supplied, create second fig
+    #if z1_interesting, make second plot
     if z1_interesting != {}:
         fig2, ax2 = plt.subplots()
         ax2.set_ylabel('Fractional change in ionic concentration')
@@ -3655,20 +3631,19 @@ def ion_sensitivity(Z, errors, z1_plot={}, z1_interesting={}, distribution='f', 
         clist2 = get_cmap(len(errors) + 2)
 
     for i, max_error in enumerate(errors):
-        median, min, max = monte_carlo_csd(Z, max_error, max_error, runs=1000, makefiles=False, plot=False,
-                                           Te_range=[1e4,1e9], distribution=distribution)
+        median, min, max = monte_carlo_csd(Z, max_error, max_error, runs=1000, makefiles=False, plot=False, Te_range=[1e4,1e9])
         percent, numbers_only = [], []
-        for z1 in range(1, Z + 2):
-            # find ion abundances at peak abundance
+        for z1 in range(1, Z+2):
+            #find ion abundances at peak abundance
             peak = numpy.max(median[:, z1 - 1])
             peak_idx = numpy.argmax(median[:, z1 - 1])
             min_p = min[peak_idx, z1 - 1]
             max_p = max[peak_idx, z1 - 1]
-            val = abs(((max_p - min_p) / peak) / 2)
+            val = abs(((max_p - min_p) / peak)/2)
             if val < 0.01: val = 0
-            numbers_only.append(round(val, 2))
-            val = numpy.format_float_positional(val * 100, precision=2)
-            percent.append(val + ' %')
+            numbers_only.append(round(val,2))
+            val = numpy.format_float_positional(val*100, precision=2)
+            percent.append(val+' %')
 
             if z1_interesting != {} and z1 == z1_interesting:
                 idx = numpy.where(median[:, z1 - 1] >= 10e-3)[0]
@@ -3676,91 +3651,34 @@ def ion_sensitivity(Z, errors, z1_plot={}, z1_interesting={}, distribution='f', 
                 plot_errors = ((max2[:, z1 - 1] - min2[:, z1 - 1]) / median2[:, z1 - 1]) / 2
                 ax2.semilogx(temps, plot_errors, color=clist2(i), label="{}%".format(int(max_error * 100)))
 
-        values['+/- ' + str(round(max_error * 100, 2)) + '%'] = numbers_only
+        values['+/- '+str(round(max_error*100,2))+'%'] = numbers_only
 
     if z1_interesting != {}:
         ax2ticks = ax2.get_yticks()
         ax2.set_yticks(ax2ticks, numpy.round(ax2ticks, 2)[0])
         peak_Te = find_peak_Te(Z, z1_interesting)
         ax2.axvline(peak_Te, linestyle='--', color='grey', alpha=0.4)
-        fig2.savefig('O5.pdf')
 
     ticks = numpy.arange(0, numpy.max(numbers_only) + 0.05, 0.05)
     ax1.set_yticks(ticks)
     i = numpy.where(numpy.array(errors) < numpy.max(numbers_only) + 0.05)[0]
     ax1.plot(numpy.array(errors)[i], numpy.array(errors)[i], color='k', linestyle='--')
-    ax1.set_xlabel('Fractional change')
-    ax1.set_ylabel('Fractional change in peak ionic concentration')
-    for z1 in z1_list:
-        v = [values[col][z1 - 1] for col in values.colnames[1:]]
-        ax1.plot(errors, v, label=ions[z1 - 1], color=clist(z1 - 1))
-    if show_legend == True:
-        ax1.legend(fontsize='xx-small', loc='upper left')
-    fig.savefig('O.pdf')
-    plt.show()
-    plt.close('all')
 
-# #def peak_frac_sensitivity(Z, errors, z1={}, makefiles=False, plot=True, distribution='f', show_legend=False):
-#     """ Finds fractional change in ion peak abundances from
-#     varying CSD with random errors from Gaussian or flat distribution
-#     using each delta_r from errors as sigma.
-#     If z1 empty, calculates for all ions."""
-#
-#     Telist, element,  = numpy.logspace(4, 9, 1251), pyatomdb.atomic.Ztoelsymb(Z)
-#     if z1 == {}:
-#         z1_list = [z1 for z1 in range(1,Z+2)]
-#     elif z1 != {} and isinstance(z1, int): z1_list = [z1]
-#     else: z1_list = list(z1)
-#
-#     ions = [element] + [element + ' ' + str(z1 - 1) + '+' for z1 in range(2, Z + 2)]
-#     clist = get_cmap(Z+2, name=plot_settings['cmap'])
-#     values = Table()
-#     values['Ion'] = ions
-#
-#     for i, max_error in enumerate(errors):
-#         median, min, max = monte_carlo_csd(Z, max_error, max_error, runs=500, makefiles=False, plot=False, distribution=distribution)
-#         percent, numbers_only = [], []
-#         for z1 in range(1, Z+2):
-#             #find ion abundances at peak abundance
-#             peak = numpy.max(median[:, z1 - 1])
-#             idx = numpy.argmax(median[:, z1 - 1])
-#             min_p = min[idx, z1 - 1]
-#             max_p = max[idx, z1 - 1]
-#             val = abs(((max_p - min_p) / peak)/2)
-#             if val < 0.01: val = 0
-#             numbers_only.append(round(val,2))
-#             val = numpy.format_float_positional(val*100, precision=2)
-#             percent.append(val+' %')
-#
-#         values['+/- '+str(round(max_error*100,2))+'%'] = numbers_only
-#
-#     if plot == True:
-#         if plot_settings['latex_font'] == True:
-#             try:
-#                 setup_text_plots(usetex=True)
-#             except:
-#                 setup_text_plots(usetex=False)
-#                 print("Using regular matplotlib font for plotting, could not find an installation of LaTeX")
-#         ticks = numpy.arange(0, numpy.max(numbers_only) + 0.05, 0.05)
-#         plt.yticks(ticks, ticks.round(2))
-#         i = numpy.where(numpy.array(errors) < numpy.max(numbers_only) + 0.05)[0]
-#         plt.plot(numpy.array(errors)[i], numpy.array(errors)[i], color='k', linestyle='--')
-#         plt.xlabel('Fractional error', fontsize=plot_settings['fontsize'])
-#         plt.ylabel('Fractional error in peak ionic concentration', fontsize=plot_settings['fontsize'])
-#         for z1 in z1_list:
-#             v = [values[col][z1-1] for col in values.colnames[1:]]
-#             plt.plot(errors, v, label=ions[z1-1], color=clist(z1-1))
-#         if show_legend == True:
-#             plt.legend(fontsize=plot_settings['legendsize'], loc=plot_settings['legendloc'])
-#         plt.savefig(element+' peak abund sensitivity.pdf')
-#         plt.show()
-#         plt.close('all')
-#
-#     if makefiles == True:
-#         fname = element + ' peak frac changes '
-#         number = get_file_num(fname, '.csv')
-#         values.write(fname + str(number) + '.csv', format='csv')
-#         print("Wrote to", fname + str(number) + '.csv')
+    for z1 in z1_list:
+        v = [values[col][z1-1] for col in values.colnames[1:]]
+        ax1.plot(errors, v, label=ions[z1-1], color=clist(z1-1))
+
+    if show_legend == True:
+        ax1.legend(fontsize='xx-small', loc=plot_settings['legendloc'])
+        if z1_interesting != {}: ax2.legend(fontsize='xx-small', loc=plot_settings['legendloc'])
+
+    fig.savefig(element+' peak ion concentration change.pdf')
+    if z1_interesting != {}:
+        fig2.savefig(element+' '+str(z1_interesting-1)+'+ sensitivity.pdf')
+
+    if show == True:
+        plt.show()
+        plt.close('all')
 
 def get_levels(Z, z1, wavelengths, relative_diff=10e-5):
     """ Returns list of levels (up, lo) used by ATOMDB
@@ -4517,7 +4435,7 @@ def calc_ioniz_popn(which_transition, x, old_rate, levpop, Z, z1, z1_drv,T, Ne, 
 
   return popn
 
-def line_sensitivity_csd(Z, z1, up, lo, vary, errors, trans_list, max_ionize, max_recomb, temps={}, plot=True, show_legend=True, use_max_csd=True):
+def line_sensitivity_csd(Z, z1, up, lo, vary, errors, trans_list, max_ionize, max_recomb, temps={}, show=True, show_legend=True, use_max_csd=True):
     """ Plots sensitivity of a line to perturbation
     in another transition and CSD errors.
 
@@ -4545,7 +4463,7 @@ def line_sensitivity_csd(Z, z1, up, lo, vary, errors, trans_list, max_ionize, ma
     temps : list or tuple
         list of temperatures to calculate emissivity change at
         default is "5 temperatures of interest"
-    plot : bool
+    show : bool
         True to show to screen, fig is saved regardless
     show_legend : bool
         True to label fig with legend (default)
@@ -4579,5 +4497,5 @@ def line_sensitivity_csd(Z, z1, up, lo, vary, errors, trans_list, max_ionize, ma
     if show_legend == True:
         ax2.legend(fontsize=plot_settings['legendsize'], loc=plot_settings['legendloc'])
     fig.savefig(fname+str(num)+'.pdf')
-    if plot == True:
+    if show == True:
         plt.show()

@@ -2,7 +2,7 @@
 as a function of varying atomic data from the AtomDB files. Requires
 PyAtomdB, Python 3, LaTeX, (and astroML if you wish to use LaTeX font with plots)."""
 
-__version__ = "1.0.2" #Oct 27, 2020
+__version__ = "1.0.2" #Nov 3, 2020
 __author__ = "Keri Heuer"
 __email__ = "kh3286@drexel.edu"
 __status__ = "Development"

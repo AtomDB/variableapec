@@ -1801,6 +1801,18 @@ def monte_carlo_csd(Z, max_ionize, max_recomb, runs=100, Te_range=[1e4,1e9], dis
         for z1 in range(1, Z + 2):
             mc_popn[run, z1 - 1, :] = newpopn[:, z1 - 1]
 
+    # find mean and standard dev from all runs for each ion at each temp
+    min = numpy.zeros([len(Telist), Z + 1])
+    max = numpy.zeros([len(Telist), Z + 1])
+    for z1 in range(1, Z + 2):
+        for i in range(len(Telist)):
+            pop = mc_popn[:, z1 - 1, i]
+            pop_list = numpy.sort(pop)
+            min_index = int(0.16 * runs - 1)
+            max_index = int(0.84 * runs - 1)
+            min[i, z1 - 1] = pop_list[min_index]
+            max[i, z1 - 1] = pop_list[max_index]
+
     if show == True:
         gs_kw = dict(width_ratios=[3], height_ratios=[2, 1])
         fig, (ax, ax2) = plt.subplots(nrows=2, sharex=True, gridspec_kw=gs_kw)
@@ -1813,18 +1825,8 @@ def monte_carlo_csd(Z, max_ionize, max_recomb, runs=100, Te_range=[1e4,1e9], dis
             for which in ['x', 'y']:
                 axis.tick_params(axis=which, labelsize=plot_settings['ticksize'])
 
-        # find mean and standard dev from all runs for each ion at each temp
-        min = numpy.zeros([len(Telist), Z + 1])
-        max = numpy.zeros([len(Telist), Z + 1])
         max_y = 0
         for z1 in range(1, Z + 2):
-            for i in range(len(Telist)):
-                pop = mc_popn[:, z1 - 1, i]
-                pop_list = numpy.sort(pop)
-                min_index = int(0.16 * runs - 1)
-                max_index = int(0.84 * runs - 1)
-                min[i, z1-1] = pop_list[min_index]
-                max[i, z1-1] = pop_list[max_index]
             ax.semilogx(Telist, eqpopn[:, z1 - 1], color=clist(z1 - 1), linestyle='-')
             ax.fill_between(Telist, min[:, z1 - 1], max[:, z1 - 1], color=clist(z1 - 1), alpha=0.4)
             error, temp_bins = [], []
@@ -2053,7 +2055,7 @@ def vary_csd(Z, z1, varyir, delta_r, Te_range=[1e4,1e9], errors={}):
     plt.show()
     return ret
 
-def csd_slope(Z, z1, varyir, errors={}):
+def csd_slope(Z, z1, varyir, errors={}, show=True):
     """Plots the rate of change in CSD of z1 and z1+1
     due to perturbing the 'i' or 'r' rate of z1 as a
     function of various errors.
@@ -2147,8 +2149,10 @@ def csd_slope(Z, z1, varyir, errors={}):
 
     plt.tight_layout()
     fig2.savefig(element+' '+str(z1_test-1)+ '+ ' + varyir + ' CSD % change.pdf')
-    plt.show()
-    plt.close()
+
+    if show == True:
+        plt.show()
+        plt.close()
 
 def get_errors(Z, error_dict):
     """
@@ -2974,35 +2978,37 @@ def find_delta_temp(Z, frac, delta_r, vary='ir', z1={}, unit='K'):
     else: ret = {'unit': unit, 'frac':frac, 'delta_Te':Te_change}
     return ret
 
-def find_new_temp(Z, frac, delta_ionize, delta_recomb, vary='ir', z1={}, unit='K'):
-    """ Returns dict of orig/median, min, and max temp values at specified
-    fractional ionic concentration (as a fraction of peak). To vary 'i' or 'r'
-    rate, need to specify z1. To vary all rate coefficients, set vary
-    to 'ir.' Default is vary 'ir' with Monte Carlo CSD and
-    return dict of new value arrays indexed by z1-1. Frac can be int
-    (single frac) or list. Dict returned is of arrays with frac
-    number of rows, z1 columns (i.e. if z1 specified, returns array
-    of values for only z1, otherwise no z1 specified, gives new temps
-    for all ions).
-    """
-    if isinstance(frac, float) or isinstance(frac, int): frac = [frac]
-    orig_temps = numpy.zeros([len(frac), Z + 1])
-    min_temps, max_temps = numpy.zeros([len(frac), Z + 1]), numpy.zeros([len(frac), Z + 1])
-    Telist = numpy.logspace(4,9,51)
-    if (vary == 'i') or (vary == 'r'):
-        eqpopn, pospopn, negpopn = get_new_popns(Telist, Z, z1, varyir, delta_r)
-    else: eqpopn, pospopn, negpopn = monte_carlo_csd(Z, delta_ionize, delta_recomb)
-
-    for i in range(len(frac)):
-        for z1 in range(1, Z+1):
-            peak, index = numpy.max(eqpopn[:, z1 - 1]), numpy.argmax(eqpopn[:, z1 - 1])
-            orig_temps[i, z1-1] = numpy.interp(frac[i] * peak, eqpopn[:, z1-1][::-1], Telist[::-1])
-            min_temp[i, z1-1] = numpy.interp(frac[i] * peak, negpopn[:, z1 - 1][::-1], Telist[::-1])
-            max_temp[i, z1-1] = numpy.interp(frac[i] * peak, pospopn[:, z1 - 1][::-1], Telist[::-1])
-
-    if z1 == {}: ret = {'orig': orig_temps, 'min': min, 'max': max}
-    else: ret = {'orig': orig_temps[:, z1-1], 'min': min_temps[:, z1-1], 'max': max_temps[:, z1-1]}
-    return ret
+# def find_new_temp(Z, frac, delta_ionize={}, delta_recomb={}, vary='ir', z1={}, unit='K'):
+#     """ Returns dict of orig/median, min, and max temp values at specified
+#     fractional ionic concentration (as a fraction of peak). To vary 'i' or 'r'
+#     rate, need to specify z1. To vary all rate coefficients, set vary
+#     to 'ir.' Default is vary 'ir' with Monte Carlo CSD and
+#     return dict of new value arrays indexed by z1-1. Frac can be int
+#     (single frac) or list. Dict returned is of arrays with frac
+#     number of rows, z1 columns (i.e. if z1 specified, returns array
+#     of values for only z1, otherwise no z1 specified, gives new temps
+#     for all ions).
+#     """
+#     if isinstance(frac, float) or isinstance(frac, int): frac = [frac]
+#     orig_temps = numpy.zeros([len(frac), Z + 1])
+#     min_temps, max_temps = numpy.zeros([len(frac), Z + 1]), numpy.zeros([len(frac), Z + 1])
+#     Telist = numpy.logspace(4,9,51)
+#     if (vary == 'i'):
+#         eqpopn, pospopn, negpopn = get_new_popns(Telist, Z, z1, vary, delta_ionize)
+#     elif (vary == 'r'):
+#         eqpopn, pospopn, negpopn = get_new_popns(Telist, Z, z1, vary, delta_recomb)
+#     else: eqpopn, pospopn, negpopn = monte_carlo_csd(Z, delta_ionize, delta_recomb, show=False)
+#
+#     for i in range(len(frac)):
+#         for z1 in range(1, Z+1):
+#             peak, index = numpy.max(eqpopn[:, z1 - 1]), numpy.argmax(eqpopn[:, z1 - 1])
+#             orig_temps[i, z1-1] = numpy.interp(frac[i] * peak, eqpopn[:, z1-1][::-1], Telist[::-1])
+#             min_temps[i, z1-1] = numpy.interp(frac[i] * peak, negpopn[:, z1 - 1][::-1], Telist[::-1])
+#             max_temps[i, z1-1] = numpy.interp(frac[i] * peak, pospopn[:, z1 - 1][::-1], Telist[::-1])
+#
+#     if z1 == {}: ret = {'orig': orig_temps, 'min': min, 'max': max}
+#     else: ret = {'orig': orig_temps[:, z1-1], 'min': min_temps[:, z1-1], 'max': max_temps[:, z1-1]}
+#     return ret
 
 def find_new_abund(Z, Te, delta_r, vary, unit='K', z1={}):
     """ Find orig/median and min and max values from new CSD.
@@ -3040,7 +3046,7 @@ def find_new_abund(Z, Te, delta_r, vary, unit='K', z1={}):
 
     elif vary == 'ir':  #Monte Carlo CSD
         median, min, max = numpy.zeros(len(Telist), Z+1), numpy.zeros(len(Telist), Z+1), numpy.zeros(len(Telist), Z+1)
-        avg, low, high = monte_carlo_csd(Z, delta_ionize, delta_recomb)
+        avg, low, high = monte_carlo_csd(Z, delta_r, delta_r)
         for i in range(len(Te)):
             for z1 in range(1, Z+1):
                 median[i, z1 - 1] = numpy.interp(Te[i], Telist, avg[:, z1-1])
@@ -3082,7 +3088,7 @@ def temps_of_interest(Z, z1, Telist=numpy.logspace(4,9,1251)):
     temp_bins = numpy.array([increasing_temps[0], increasing_temps[1], Telist[peak], decreasing_temps[1], decreasing_temps[0]])
     return temp_bins
 
-def line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, temps={}, pop_fraction={}, dens=1, trans_labels={}, show=True):
+def line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, temps={}, pop_fraction={}, dens=1, trans_labels={}, show=True, savefig=True):
     """ Calculates fractional change in emissivity dE/E for
     specified Z (element), z1 (ion charge+1), up, lo line.
     Vary either 'exc' or 'A' for each transition in trans_list
@@ -3090,12 +3096,39 @@ def line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, temps={}, pop_frac
     temps are temps where Z, z1 ionic fraction is 1%, 10%, peak,
     back down to 10% and 1%. Temps can be 'peak' for just the peak
     temperature or a single value.
-    trans_list : list of transitions to vary
+
+    Z : int
+        element
+    z1 : int
+        ion charge +1
+    up : int
+        upper level of transition to look at
+    lo : int
+        lower level of transition to look at
     vary : str
-    errors : list of delta_r's
+        type of rate to vary: 'exc' or 'A'
+    errors : list or tuple
+        list of errors on rate
+    trans_list : list or tuple
+        list of (up, lo) for transitions to vary
+    temps : list or tuple
+        temperatures to calculate new emissivity for
+        default is 5 temps of interest
+    pop_fraction : array
+        perturbed pop fraction i.e. array outputted
+        from monte_carlo_csd, otherwise use unperturbed
+    dens : float
+        density, default is 1
+    trans_labels : list or tuple
+        list of legend labels for each transition
+        (should be same length as trans_list)
+    show : bool
+        True to show to screen
+    savefig : bool
+        save figure (False for wrapper routines using this)
     """
 
-    if plot_settings['latex_font'] == True:
+    if plot_settings['use_latex_font'] == True:
         try:
             setup_text_plots(usetex=True)
         except:
@@ -3184,7 +3217,7 @@ def get_orig_popn(Z, Telist):
     eqpopn = solve_ionrec(Telist, ionlist, reclist, Z)
     return eqpopn
 
-def find_CSD_change(Z, z1, delta_ionize, delta_recomb={}, Te={}, frac={}, varyir={}, printout=True):
+def find_csd_change(Z, z1, delta_ionize, delta_recomb={}, Te={}, frac={}, varyir={}, printout=True):
     """ Find the change in CSD at specified temp or ion fraction.
     Default is applying random error from Gaussian distribution
     to all rates with a maximum error/sigma = delta_r.
@@ -3218,7 +3251,7 @@ def find_CSD_change(Z, z1, delta_ionize, delta_recomb={}, Te={}, frac={}, varyir
             elif varyir == 'r':
                 print("Varying recombination rate for", element, str(z1 - 1), "+ ion only...\n")
 
-            eqpopn, pospopn, negpopn = get_new_popns(Telist, Z, z1, varyir, delta_r)
+            eqpopn, pospopn, negpopn = get_new_popns(Telist, Z, z1, varyir, delta_ionize)
 
             #if frac abundance specified, find temp change in new CSD at that fraction
             if frac != {}:
@@ -3412,7 +3445,7 @@ def error_analysis(Z, z1, up, lo, Te, dens, errors, linewidth=2.5, filename={}, 
     print("Finding CSD errors for ions:", ions)
     str_ions = [element + '$^{+' + str(x - 1) + '}$' for x in ions]
     CSD = [round(pop_fraction[x-1]*100,2) for x in ions]
-    CSD_percent_errors= find_CSD_change(Z, ions, delta_ionize, delta_recomb, Te=Te, printout=False)  # MC
+    CSD_percent_errors= find_csd_change(Z, ions, delta_ionize, delta_recomb, Te=Te, printout=False)  # MC
     CSD_errors = [int(round(x*y,2)) for x,y in zip(CSD_percent_errors, CSD)]
 
     # get energies and flux uncertainty
@@ -3469,7 +3502,7 @@ def error_analysis(Z, z1, up, lo, Te, dens, errors, linewidth=2.5, filename={}, 
                 other_lines.update({el+' '+z_1: 1})
     print(other_lines)
 
-    #final error calculation
+    #final error calculation            #still in progress
     in_range, matrix = values['in_range'], values['matrix']
     exc_init, exc_final, exc_rates = pyatomdb.apec.gather_rates(Z, z1, Te, dens, do_la=False, do_ec=True, do_ir=False,
                                                                 do_pc=False, do_ai=False, datacache=d)
@@ -3631,7 +3664,7 @@ def ion_sensitivity(Z, errors, z1_plot={}, z1_interesting={}, distribution='f', 
         clist2 = get_cmap(len(errors) + 2)
 
     for i, max_error in enumerate(errors):
-        median, min, max = monte_carlo_csd(Z, max_error, max_error, runs=1000, makefiles=False, plot=False, Te_range=[1e4,1e9])
+        median, min, max = monte_carlo_csd(Z, max_error, max_error, runs=1000, makefiles=False, show=False, Te_range=[1e4,1e9])
         percent, numbers_only = [], []
         for z1 in range(1, Z+2):
             #find ion abundances at peak abundance
@@ -4435,7 +4468,7 @@ def calc_ioniz_popn(which_transition, x, old_rate, levpop, Z, z1, z1_drv,T, Ne, 
 
   return popn
 
-def line_sensitivity_csd(Z, z1, up, lo, vary, errors, trans_list, max_ionize, max_recomb, temps={}, show=True, show_legend=True, use_max_csd=True):
+def line_sensitivity_csd(Z, z1, up, lo, vary, errors, trans_list, max_ionize, max_recomb, temps={}, trans_labels={}, show=True, show_legend=True, use_max_csd=True):
     """ Plots sensitivity of a line to perturbation
     in another transition and CSD errors.
 
@@ -4476,26 +4509,40 @@ def line_sensitivity_csd(Z, z1, up, lo, vary, errors, trans_list, max_ionize, ma
     fig, ax2 = plt.subplots()
     ax2.set_xlabel('Fractional error')
     ax2.set_ylabel('Fractional change in emissivity')
+    temp_str, legend_labels = ['%.1E' % Decimal(x) for x in temps], []
+    markers = ['o', 'v', 's', 'P', '^', '2']  # marker is for each transition
 
-    for i, Te in enumerate(temps):
-        min, max = mc_popn(Z, max_ionize, max_recomb,Te, type='f')
-        if use_max_csd == True:
-            matrix2 = line_sensitivity(Z,z1,up,lo,vary,errors, trans_list, temps=Te, pop_fraction=max, show=False)
-        else: # use min
-            matrix2 = line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, temps=Te, pop_fraction=min, show=False)
-        matrix3 = line_sensitivity(Z,z1,up,lo,vary,errors2, trans_list, temps=Te, show=False)
-        max_e, none = matrix2[0,0,:], matrix3[0,0,:]
-        ax2.plot(errors, max_e, color=cmap(i))
-        ax2.plot(errors2, none, '--', color=cmap(i), marker='o')
+    # vary each transition in trans_list separately
+    for a, transition in enumerate(trans_list):
+        up, lo = transition[0], transition[1]
+
+        # add legend label
+        if trans_labels == {}:
+            legend_labels.append(Line2D([0], [0], marker=markers[a], label=str(transition[0]) + '->' + str(transition[1])))
+        else:
+            legend_labels.append(Line2D([0], [0], marker=markers[a], label=trans_labels[a]))
+
+        for b, Te in enumerate(temps):
+            legend_labels.append(Line2D([0], [0], color=cmap(b), label=temp_str[b]))
+            min, max = mc_popn(Z, max_ionize, max_recomb,Te, distribution='f')
+            if use_max_csd == True: #use max possible csd values
+                matrix2 = line_sensitivity(Z,z1,up,lo,vary,errors, trans_list, temps=Te, pop_fraction=max, show=False, savefig=False)
+            else: # use min csd values
+                matrix2 = line_sensitivity(Z, z1, up, lo, vary, errors, trans_list, temps=Te, pop_fraction=min, show=False, savefig=False)
+            matrix3 = line_sensitivity(Z,z1,up,lo,vary,errors, trans_list, temps=Te, show=False, savefig=False)
+            new_e, none = matrix2[0,0,:], matrix3[0,0,:]
+            ax2.plot(errors, new_e, color=cmap(b))
+            ax2.plot(errors, none, '--', color=cmap(b), marker='o')
 
     ax2.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     ax2.xaxis.set_major_formatter(FormatStrFormatter('%.2f'))
-    element, ion = pyatomdb.atomic.Z_to_elsymb(Z), pyatomdb.atomic.int_to_roman(z1)
+    element, ion = pyatomdb.atomic.Ztoelsymb(Z), pyatomdb.atomic.int_to_roman(z1)
     fname = element + ' ' + ion + ' ' + str(up) + '-' + str(lo) + ' sensitivity with csd'
     num = get_file_num(fname, '.pdf')
-    fig.set_title("%d->%d sensitivity" % (up, lo))
+    fig.suptitle("%d->%d sensitivity" % (up, lo))
     if show_legend == True:
-        ax2.legend(fontsize=plot_settings['legendsize'], loc=plot_settings['legendloc'])
+        ax2.legend(fontsize=plot_settings['legendsize'], loc=plot_settings['legendloc'], handles=legend_labels)
     fig.savefig(fname+str(num)+'.pdf')
     if show == True:
         plt.show()
+
